@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevMirror — One Dashboard for Your Entire Dev Life</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #07050f;
+      --s1:      #0d0a1d;
+      --s2:      #140f2a;
+      --s3:      #1e1640;
+      --bd:      rgba(124, 58, 237, 0.18);
+      --bdhi:    rgba(124, 58, 237, 0.42);
+      --acc:     #7c3aed;
+      --acc-l:   #a78bfa;
+      --acc-xl:  #c4b5fd;
+      --text:    #f0eeff;
+      --muted:   #7870a8;
+      --green:   #34d399;
+      --amber:   #fbbf24;
+      --glow:    rgba(124, 58, 237, 0.22);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+      overflow-x: hidden;
+    }
+
+    /* Grain */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9000;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.2rem 3rem;
+      border-bottom: 1px solid transparent;
+      transition: background 0.4s, border-color 0.4s;
+    }
+    nav.scrolled {
+      background: rgba(7, 5, 15, 0.9);
+      backdrop-filter: blur(20px);
+      border-bottom-color: var(--bd);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text);
+    }
+    .logo-sq {
+      width: 30px;
+      height: 30px;
+      background: var(--acc);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 500;
+      color: #fff;
+      position: relative;
+    }
+    .logo-sq::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 1px solid var(--acc-l);
+      transform: translate(3px, 3px);
+    }
+
+    .nav-links { display: flex; gap: 2.5rem; list-style: none; }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-live {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--bdhi);
+      padding: 0.35rem 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.67rem;
+      color: var(--acc-l);
+      background: rgba(124, 58, 237, 0.07);
+      letter-spacing: 0.04em;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
+      background: #ef4444;
+      border-radius: 50%;
+      animation: livepulse 2s ease infinite;
+    }
+    @keyframes livepulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.45;transform:scale(0.85)} }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-block;
+      text-decoration: none;
+      cursor: pointer;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      border: none;
+      transition: all 0.22s;
+    }
+    .btn-primary {
+      background: var(--acc);
+      color: #fff;
+      padding: 0.9rem 2rem;
+      font-size: 0.88rem;
+    }
+    .btn-primary:hover {
+      background: #6d28d9;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 32px rgba(124, 58, 237, 0.5);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      padding: 0.9rem 2rem;
+      font-size: 0.88rem;
+      border: 1px solid var(--bd);
+    }
+    .btn-ghost:hover { border-color: var(--bdhi); color: var(--text); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8rem 2rem 5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-glow {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 50% 30%, rgba(124,58,237,0.1) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 50% at 50% 80%, rgba(124,58,237,0.12) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-dots {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(124,58,237,0.12) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: radial-gradient(ellipse 80% 75% at 50% 45%, black 20%, transparent 75%);
+      pointer-events: none;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--bdhi);
+      padding: 0.35rem 0.9rem;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.67rem;
+      color: var(--acc-l);
+      letter-spacing: 0.06em;
+      background: rgba(124, 58, 237, 0.07);
+      margin-bottom: 2.2rem;
+      animation: fadeUp 0.6s ease 0.1s both;
+    }
+
+    .hero-h1 {
+      font-size: clamp(3rem, 8.5vw, 7rem);
+      font-weight: 800;
+      line-height: 1.0;
+      letter-spacing: -0.035em;
+      margin-bottom: 1.6rem;
+      animation: fadeUp 0.7s ease 0.25s both;
+    }
+    .hero-h1 .line2 { display: block; color: var(--acc-l); }
+
+    .hero-coach {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(0.8rem, 1.8vw, 1rem);
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      margin-bottom: 0.9rem;
+      animation: fadeUp 0.6s ease 0.38s both;
+    }
+    .hero-coach em { color: var(--acc-xl); font-style: normal; }
+
+    .hero-sub {
+      font-size: clamp(0.9rem, 1.8vw, 1.05rem);
+      color: var(--muted);
+      max-width: 580px;
+      line-height: 1.75;
+      font-weight: 400;
+      margin-bottom: 2.4rem;
+      animation: fadeUp 0.6s ease 0.45s both;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 3.5rem;
+      animation: fadeUp 0.6s ease 0.58s both;
+    }
+
+    /* Terminal */
+    .hero-term-wrap {
+      width: 100%;
+      max-width: 800px;
+      animation: fadeUp 0.8s ease 0.72s both;
+    }
+
+    /* ── TERMINAL UI ── */
+    .terminal {
+      background: #050210;
+      border: 1px solid var(--bdhi);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(124,58,237,0.08),
+        0 0 80px rgba(124,58,237,0.22),
+        0 32px 80px rgba(0,0,0,0.65);
+    }
+    .term-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.75rem 1.2rem;
+      background: var(--s2);
+      border-bottom: 1px solid var(--bd);
+    }
+    .tdot { width: 10px; height: 10px; border-radius: 50%; }
+    .term-title {
+      margin-left: 0.4rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+    .term-body {
+      padding: 1.4rem 1.8rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      line-height: 1.85;
+      height: 360px;
+      overflow-y: auto;
+      text-align: left;
+    }
+    .term-body::-webkit-scrollbar { display: none; }
+
+    .t-prompt { color: var(--green); }
+    .t-cmd    { color: var(--text); }
+    .t-dim    { color: #2e2556; }
+    .t-purple { color: var(--acc-l); font-weight: 500; }
+    .t-menu   { color: #9d96d4; }
+    .t-win    { color: var(--green); }
+    .t-nudge  { color: var(--amber); }
+    .t-text   { color: #d0ccf4; }
+    .t-cursor {
+      display: inline-block;
+      width: 7px;
+      height: 0.85em;
+      background: var(--acc-l);
+      vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── PLATFORM STRIP ── */
+    .platforms {
+      background: var(--s1);
+      border-top: 1px solid var(--bd);
+      border-bottom: 1px solid var(--bd);
+      padding: 1.4rem 2rem;
+    }
+    .plat-label {
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .plat-row {
+      display: flex;
+      justify-content: center;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+    .plat-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 1rem;
+      border: 1px solid var(--bd);
+      background: var(--s2);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      transition: all 0.25s;
+      cursor: default;
+    }
+    .plat-chip:hover { border-color: var(--bdhi); color: var(--text); background: var(--s3); }
+    .plat-led {
+      width: 5px; height: 5px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--green);
+    }
+
+    /* ── SHARED ── */
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 6.5rem 3rem; }
+    .stag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.67rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--acc-l);
+      margin-bottom: 1rem;
+    }
+    .stitle {
+      font-size: clamp(2.2rem, 5vw, 3.8rem);
+      font-weight: 800;
+      line-height: 1.08;
+      letter-spacing: -0.025em;
+      margin-bottom: 1.2rem;
+    }
+    .sbody {
+      color: var(--muted);
+      font-size: 0.9rem;
+      max-width: 520px;
+      line-height: 1.78;
+      font-weight: 400;
+    }
+
+    /* ── SOURCES ── */
+    .sources-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--bd);
+      border: 1px solid var(--bd);
+      margin-top: 3.5rem;
+    }
+    .src-card {
+      background: var(--s1);
+      padding: 2rem 1.8rem;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s;
+    }
+    .src-card:hover { background: var(--s2); }
+    .src-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--acc), transparent);
+      transform: scaleX(0);
+      transition: transform 0.4s ease;
+    }
+    .src-card:hover::after { transform: scaleX(1); }
+
+    .src-mark {
+      width: 38px; height: 38px;
+      border: 1px solid var(--bdhi);
+      background: rgba(124,58,237,0.06);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      color: var(--acc-l);
+    }
+    .src-name  { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .src-api   {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--acc-l);
+      letter-spacing: 0.05em;
+      margin-bottom: 0.55rem;
+    }
+    .src-desc  { font-size: 0.78rem; color: var(--muted); line-height: 1.72; font-weight: 400; }
+    .src-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      margin-top: 0.8rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--green);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ── QUESTIONS ── */
+    .q-bg {
+      background: var(--s1);
+      border-top: 1px solid var(--bd);
+      border-bottom: 1px solid var(--bd);
+    }
+    .q-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-top: 3rem;
+    }
+    .q-card {
+      background: var(--s2);
+      border: 1px solid var(--bd);
+      padding: 1.6rem;
+      transition: all 0.28s;
+      cursor: default;
+    }
+    .q-card:hover {
+      border-color: var(--bdhi);
+      background: var(--s3);
+      transform: translateX(5px);
+    }
+    .q-n {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.63rem;
+      color: var(--acc);
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+    .q-t { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .q-h { font-size: 0.75rem; color: var(--muted); font-weight: 400; line-height: 1.6; }
+
+    /* ── REPORT ── */
+    .report-card {
+      background: #050210;
+      border: 1px solid var(--bdhi);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 3.5rem;
+      box-shadow: 0 0 70px rgba(124, 58, 237, 0.18), 0 24px 60px rgba(0,0,0,0.5);
+    }
+    .report-bar {
+      background: var(--s2);
+      border-bottom: 1px solid var(--bd);
+      padding: 0.8rem 1.6rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .report-bar-l {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+    .report-live {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.63rem;
+      color: var(--green);
+    }
+    .report-body {
+      padding: 2rem 2.2rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 2;
+    }
+    .r-hdr  { color: var(--acc-l); font-weight: 500; }
+    .r-win  { color: var(--green); }
+    .r-nudge{ color: var(--amber); }
+    .r-text { color: #ccc8ee; }
+    .r-dim  { color: var(--muted); }
+
+    /* ── HOW IT WORKS ── */
+    .hw-bg {
+      background: var(--s1);
+      border-top: 1px solid var(--bd);
+      border-bottom: 1px solid var(--bd);
+    }
+    .hw-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--bd);
+      border: 1px solid var(--bd);
+      margin-top: 3.5rem;
+    }
+    .hw-step {
+      background: var(--s1);
+      padding: 2.5rem 2rem;
+    }
+    .hw-n {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 4rem;
+      font-weight: 300;
+      color: rgba(124,58,237,0.14);
+      line-height: 1;
+      margin-bottom: 1rem;
+    }
+    .hw-t { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .hw-d { font-size: 0.8rem; color: var(--muted); line-height: 1.75; font-weight: 400; }
+    .hw-code {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--acc-l);
+      background: rgba(124,58,237,0.08);
+      padding: 0.15rem 0.45rem;
+      border-radius: 3px;
+      font-size: 0.75rem;
+    }
+
+    /* ── HACKATHON BANNER ── */
+    .hack-outer { padding: 2.5rem 3rem; }
+    .hack-card {
+      background: var(--s2);
+      border: 1px solid var(--bdhi);
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .hack-left  { display: flex; align-items: center; gap: 1rem; }
+    .hack-emoji { font-size: 2.2rem; }
+    .hack-title { font-size: 0.9rem; font-weight: 700; }
+    .hack-sub   { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; font-weight: 400; }
+    .hack-tags  { display: flex; gap: 0.65rem; flex-wrap: wrap; }
+    .hack-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.67rem;
+      padding: 0.28rem 0.75rem;
+      border: 1px solid var(--bdhi);
+      color: var(--acc-l);
+      letter-spacing: 0.04em;
+    }
+    .hack-tag-green {
+      border-color: rgba(52,211,153,0.3);
+      color: var(--green);
+    }
+
+    /* ── CTA ── */
+    .cta-wrap {
+      text-align: center;
+      padding: 8rem 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-wrap::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 55% 60% at 50% 50%, rgba(124,58,237,0.09) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-h2 {
+      font-size: clamp(2.8rem, 8vw, 6.5rem);
+      font-weight: 800;
+      line-height: 1.0;
+      letter-spacing: -0.035em;
+      margin-bottom: 1.4rem;
+    }
+    .cta-outline {
+      display: block;
+      -webkit-text-stroke: 2px var(--acc-l);
+      color: transparent;
+    }
+    .cta-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 2.8rem; font-weight: 400; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--s1);
+      border-top: 1px solid var(--bd);
+      padding: 2rem 3rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+    }
+    .footer-copy {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.78rem;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--acc-l); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(22px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(26px);
+      transition: opacity 0.62s ease, transform 0.62s ease;
+    }
+    .reveal.in { opacity: 1; transform: none; }
+    .d1 { transition-delay: 0.1s; }
+    .d2 { transition-delay: 0.2s; }
+    .d3 { transition-delay: 0.3s; }
+    .d4 { transition-delay: 0.4s; }
+    .d5 { transition-delay: 0.5s; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      nav { padding: 1rem 1.5rem; }
+      .nav-links { display: none; }
+      .wrap { padding: 4.5rem 1.5rem; }
+      .sources-grid { grid-template-columns: 1fr 1fr; }
+      .q-grid { grid-template-columns: 1fr; }
+      .hw-grid { grid-template-columns: 1fr; }
+      .hack-outer { padding: 2rem 1.5rem; }
+      footer { flex-direction: column; text-align: center; }
+    }
+    @media (max-width: 580px) {
+      .sources-grid { grid-template-columns: 1fr; }
+      .hero-cta { flex-direction: column; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ NAV ═══ -->
+<nav id="nav">
+  <a href="#" class="logo">
+    <span class="logo-sq">DM</span>
+    DevMirror
+  </a>
+  <ul class="nav-links">
+    <li><a href="#sources">Sources</a></li>
+    <li><a href="#questions">Ask DevMirror</a></li>
+    <li><a href="#report">AI Report</a></li>
+    <li><a href="#how">How It Works</a></li>
+  </ul>
+  <div class="nav-live">
+    <span class="live-dot"></span>
+    Pirates of the Coral-bean 2026
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-dots"></div>
+
+  <div class="hero-eyebrow">
+    <span class="live-dot"></span>
+    Hackathon Day 3 &nbsp;·&nbsp; Track 2: Personal Agent &nbsp;·&nbsp; Gemini 2.5 Flash
+  </div>
+
+  <h1 class="hero-h1">
+    One dashboard for
+    <span class="line2">your entire dev life.</span>
+  </h1>
+
+  <div class="hero-coach">
+    <em>"Not your critic. Your coach."</em>
+  </div>
+
+  <p class="hero-sub">
+    DevMirror connects GitHub, LeetCode, Codeforces, Gmail,
+    Google Calendar &amp; YouTube — and generates a personalised
+    AI growth report that celebrates your wins and guides your next move.
+  </p>
+
+  <div class="hero-cta">
+    <a href="https://github.com/YashasviThakur/DevMirror" class="btn btn-primary">View on GitHub →</a>
+    <a href="#questions" class="btn btn-ghost">See What It Does</a>
+  </div>
+
+  <div class="hero-term-wrap">
+    <div class="terminal" id="hero-terminal">
+      <div class="term-bar">
+        <span class="tdot" style="background:#ff5f56"></span>
+        <span class="tdot" style="background:#ffbd2e"></span>
+        <span class="tdot" style="background:#27c93f"></span>
+        <span class="term-title">yashasvi@devmirror — python main.py</span>
+      </div>
+      <div class="term-body" id="term-body">
+        <div><span class="t-prompt">❯</span>&nbsp;<span id="typed-cmd"></span><span class="t-cursor" id="main-cursor" style="display:none"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PLATFORMS STRIP ═══ -->
+<div class="platforms">
+  <div class="plat-label">Connected Data Sources</div>
+  <div class="plat-row">
+    <div class="plat-chip"><span class="plat-led"></span>GitHub</div>
+    <div class="plat-chip"><span class="plat-led"></span>LeetCode</div>
+    <div class="plat-chip"><span class="plat-led"></span>Codeforces</div>
+    <div class="plat-chip"><span class="plat-led"></span>Gmail</div>
+    <div class="plat-chip"><span class="plat-led"></span>Google Calendar</div>
+    <div class="plat-chip"><span class="plat-led"></span>YouTube</div>
+  </div>
+</div>
+
+<!-- ═══ DATA SOURCES ═══ -->
+<div id="sources">
+  <div class="wrap">
+    <div class="stag reveal">— Where DevMirror Looks</div>
+    <h2 class="stitle reveal d1">Everything,<br>finally connected.</h2>
+    <p class="sbody reveal d2">
+      Six platforms. One command. DevMirror pulls live data from every tool you already use — no manual input, no copy-pasting.
+    </p>
+
+    <div class="sources-grid">
+      <div class="src-card reveal">
+        <div class="src-mark">⬡</div>
+        <div class="src-name">GitHub</div>
+        <div class="src-api">Coral SQL · commit_activity</div>
+        <p class="src-desc">Repos, commits, activity — what did you actually build this week? Cross-joined with Slack via Coral SQL.</p>
+        <span class="src-badge"><span class="plat-led"></span>GITHUB_TOKEN</span>
+      </div>
+      <div class="src-card reveal d1">
+        <div class="src-mark">◆</div>
+        <div class="src-name">LeetCode</div>
+        <div class="src-api">GraphQL API · no auth needed</div>
+        <p class="src-desc">Problem count, difficulty breakdown, streak. Your DSA progress broken down clearly — no account setup required.</p>
+        <span class="src-badge"><span class="plat-led"></span>Public API</span>
+      </div>
+      <div class="src-card reveal d2">
+        <div class="src-mark">▲</div>
+        <div class="src-name">Codeforces</div>
+        <div class="src-api">REST API · no auth needed</div>
+        <p class="src-desc">Rating history, submissions, contest participation. How does your competitive programming journey look over time?</p>
+        <span class="src-badge"><span class="plat-led"></span>Public API</span>
+      </div>
+      <div class="src-card reveal">
+        <div class="src-mark">✉</div>
+        <div class="src-name">Gmail</div>
+        <div class="src-api">Gmail API · OAuth 2.0</div>
+        <p class="src-desc">Internship applications, hackathon invitations, and opportunity emails — filtered automatically. Never miss a deadline.</p>
+        <span class="src-badge"><span class="plat-led"></span>OAuth 2.0</span>
+      </div>
+      <div class="src-card reveal d1">
+        <div class="src-mark">▦</div>
+        <div class="src-name">Google Calendar</div>
+        <div class="src-api">Calendar API · OAuth 2.0</div>
+        <p class="src-desc">Study sessions, coding blocks, exam schedules. Know exactly how much time you've actually spent on your craft.</p>
+        <span class="src-badge"><span class="plat-led"></span>OAuth 2.0</span>
+      </div>
+      <div class="src-card reveal d2">
+        <div class="src-mark">▶</div>
+        <div class="src-name">YouTube</div>
+        <div class="src-api">Google Takeout JSON · local file</div>
+        <p class="src-desc">Watch history analysed for learning content. Are you watching tutorials and actually building, or stuck in tutorial hell?</p>
+        <span class="src-badge"><span class="plat-led"></span>Takeout Export</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ QUESTIONS ═══ -->
+<div id="questions" class="q-bg">
+  <div class="wrap">
+    <div class="stag reveal">— The 6-Option Menu</div>
+    <h2 class="stitle reveal d1">Ask DevMirror anything<br>about your dev life.</h2>
+    <p class="sbody reveal d2">
+      The main menu is six questions you actually care about. Pick one, and DevMirror fetches your data live and gets Gemini to answer — honestly, helpfully, and without judgement.
+    </p>
+
+    <div class="q-grid">
+      <div class="q-card reveal">
+        <div class="q-n">01 ──────────</div>
+        <div class="q-t">Give me my growth report</div>
+        <div class="q-h">Full AI synthesis of your week — wins across all 6 platforms, patterns, and personalised nudges.</div>
+      </div>
+      <div class="q-card reveal d1">
+        <div class="q-n">02 ──────────</div>
+        <div class="q-t">How is my DSA progress?</div>
+        <div class="q-h">LeetCode + Codeforces combined view — streak status, difficulty breakdown, what to tackle next.</div>
+      </div>
+      <div class="q-card reveal">
+        <div class="q-n">03 ──────────</div>
+        <div class="q-t">What should I focus on today?</div>
+        <div class="q-h">Gemini reads your calendar, GitHub activity, and DSA progress to recommend your single best move.</div>
+      </div>
+      <div class="q-card reveal d1">
+        <div class="q-n">04 ──────────</div>
+        <div class="q-t">Am I learning more than building?</div>
+        <div class="q-h">YouTube watch history vs GitHub commits. Are you consuming or creating? Get an honest balance score.</div>
+      </div>
+      <div class="q-card reveal">
+        <div class="q-n">05 ──────────</div>
+        <div class="q-t">Any internship or hackathon emails?</div>
+        <div class="q-h">Gmail filtered and summarised for opportunities. Application windows, invites, and deadlines surfaced automatically.</div>
+      </div>
+      <div class="q-card reveal d1" style="background:rgba(124,58,237,0.04);border-color:rgba(124,58,237,0.25);">
+        <div class="q-n" style="color:var(--muted)">06 ──────────</div>
+        <div class="q-t" style="color:var(--muted)">Exit</div>
+        <div class="q-h" style="font-style:italic">When you're done growing for the day.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ AI REPORT ═══ -->
+<div id="report">
+  <div class="wrap">
+    <div class="stag reveal">— Real AI Output</div>
+    <h2 class="stitle reveal d1">Your coach speaks.<br>You listen.</h2>
+    <p class="sbody reveal d2">
+      Powered by Gemini 2.5 Flash. Every report is personalised, motivating, and actionable — celebrating small wins and guiding next steps. Never generic. Never shame-y.
+    </p>
+
+    <div class="report-card reveal d3">
+      <div class="report-bar">
+        <span class="report-bar-l">devmirror · Growth Report · Yashasvi Thakur · Today</span>
+        <span class="report-live"><span class="plat-led"></span>Gemini 2.5 Flash</span>
+      </div>
+      <div class="report-body">
+        <div class="r-hdr">╔══════════════════════════════════════════════════════╗</div>
+        <div class="r-hdr">║           DEVMIRROR GROWTH REPORT — TODAY            ║</div>
+        <div class="r-hdr">╚══════════════════════════════════════════════════════╝</div>
+        <br>
+        <div class="r-win">&nbsp;&nbsp;⭐&nbsp; Yashasvi, what an exciting growth report!</div>
+        <br>
+        <div class="r-text">&nbsp;&nbsp;Your repo <span class="r-hdr">AI-voice-detection-demo-UI</span> showcases</div>
+        <div class="r-text">&nbsp;&nbsp;your Python + HTML skills beautifully.</div>
+        <br>
+        <div class="r-win">&nbsp;&nbsp;📈&nbsp; 11 LeetCode problems with a 2-day streak?</div>
+        <div class="r-text">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;That's the habit that compounds.</div>
+        <br>
+        <div class="r-nudge">&nbsp;&nbsp;💡&nbsp; Today's nudge: Try one LeetCode Medium tonight.</div>
+        <div class="r-text">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Consistency beats intensity.</div>
+        <br>
+        <div class="r-dim">&nbsp;&nbsp;──────────────────────────────────────────────────────</div>
+        <div class="r-dim">&nbsp;&nbsp;Powered by Gemini 2.5 Flash &nbsp;·&nbsp; DevMirror v1.0 &nbsp;·&nbsp; withcoral.com</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ HOW IT WORKS ═══ -->
+<div id="how" class="hw-bg">
+  <div class="wrap">
+    <div class="stag reveal">— Dead Simple Setup</div>
+    <h2 class="stitle reveal d1">Up and running<br>in three steps.</h2>
+
+    <div class="hw-grid">
+      <div class="hw-step reveal">
+        <div class="hw-n">01</div>
+        <div class="hw-t">Clone &amp; Configure</div>
+        <p class="hw-d">Clone the repo, add your <span class="hw-code">GITHUB_TOKEN</span> and <span class="hw-code">GEMINI_API_KEY</span> to <span class="hw-code">.env</span>. Authenticate Gmail and Calendar via OAuth once — then you're set.</p>
+      </div>
+      <div class="hw-step reveal d1">
+        <div class="hw-n">02</div>
+        <div class="hw-t">Run the Agent</div>
+        <p class="hw-d"><span class="hw-code">python main.py</span> launches the 6-option interactive menu. Pick a question. DevMirror fetches data from all six sources in parallel and sends it to Gemini.</p>
+      </div>
+      <div class="hw-step reveal d2">
+        <div class="hw-n">03</div>
+        <div class="hw-t">Read Your Report</div>
+        <p class="hw-d">Gemini 2.5 Flash synthesises everything into a personalised report, formatted beautifully in your terminal by the <span class="hw-code">Rich</span> library. Your coach, in your terminal.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ HACKATHON BANNER ═══ -->
+<div class="hack-outer">
+  <div class="hack-card reveal">
+    <div class="hack-left">
+      <span class="hack-emoji">🏴‍☠️</span>
+      <div>
+        <div class="hack-title">Built live at Pirates of the Coral-bean 2026</div>
+        <div class="hack-sub">WeMakeDevs · Organized by Kunal Kushwaha · Sponsored by Coral (withcoral.com) · May 25–31</div>
+      </div>
+    </div>
+    <div class="hack-tags">
+      <span class="hack-tag">Track 2 — Personal Agent</span>
+      <span class="hack-tag hack-tag-green">● Active Build</span>
+      <span class="hack-tag">🎯 Bounties In Progress</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CTA ═══ -->
+<div class="cta-wrap">
+  <h2 class="cta-h2 reveal">
+    Connect your world.<br>
+    <span class="cta-outline">Know your growth.</span>
+  </h2>
+  <p class="cta-sub reveal d1">One command. Six platforms. One honest reflection.</p>
+  <div class="reveal d2">
+    <a href="https://github.com/YashasviThakur/DevMirror" class="btn btn-primary" style="font-size:0.95rem;padding:1rem 2.5rem;">
+      Open on GitHub →
+    </a>
+  </div>
+</div>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <a href="#" class="logo" style="font-size:0.88rem;">
+    <span class="logo-sq" style="width:26px;height:26px;font-size:0.58rem;">DM</span>
+    DevMirror
+  </a>
+  <div class="footer-copy">
+    Built at Pirates of the Coral-bean 2026 &nbsp;·&nbsp; Python + Gemini 2.5 Flash + Coral SQL
+  </div>
+  <div class="footer-links">
+    <a href="https://github.com/YashasviThakur/DevMirror">GitHub</a>
+    <a href="#">Docs</a>
+    <a href="https://discord.gg/wemakedevs">WeMakeDevs</a>
+  </div>
+</footer>
+
+<script>
+  // Nav scroll
+  const navEl = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    navEl.classList.toggle('scrolled', window.scrollY > 60);
+  }, { passive: true });
+
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const ro = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('in'); ro.unobserve(e.target); }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(el => ro.observe(el));
+
+  // ── Terminal animation ──
+  const termBody  = document.getElementById('term-body');
+  const typedCmd  = document.getElementById('typed-cmd');
+  const mainCur   = document.getElementById('main-cursor');
+
+  function addLine(cls, html) {
+    const d = document.createElement('div');
+    d.innerHTML = `<span class="${cls}">${html}</span>`;
+    termBody.appendChild(d);
+    termBody.scrollTop = termBody.scrollHeight;
+  }
+  function addGap() {
+    const d = document.createElement('div');
+    d.style.height = '3px';
+    termBody.appendChild(d);
+    termBody.scrollTop = termBody.scrollHeight;
+  }
+
+  const SEQ = [
+    { k:'type',   text:'python main.py' },
+    { k:'pause',  ms:350 },
+    { k:'gap' },
+    { k:'line',   cls:'t-dim',    html:'&nbsp;&nbsp;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' },
+    { k:'line',   cls:'t-purple', html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DevMirror v1.0 &nbsp;—&nbsp; Your AI Dev Coach' },
+    { k:'line',   cls:'t-dim',    html:'&nbsp;&nbsp;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' },
+    { k:'gap' },
+    { k:'line',   cls:'t-menu', html:'&nbsp;&nbsp;&nbsp;&nbsp;[1]&nbsp; Give me my growth report' },
+    { k:'line',   cls:'t-menu', html:'&nbsp;&nbsp;&nbsp;&nbsp;[2]&nbsp; How is my DSA progress?' },
+    { k:'line',   cls:'t-menu', html:'&nbsp;&nbsp;&nbsp;&nbsp;[3]&nbsp; What should I focus on today?' },
+    { k:'line',   cls:'t-menu', html:'&nbsp;&nbsp;&nbsp;&nbsp;[4]&nbsp; Am I learning more than building?' },
+    { k:'line',   cls:'t-menu', html:'&nbsp;&nbsp;&nbsp;&nbsp;[5]&nbsp; Any internship or hackathon emails?' },
+    { k:'line',   cls:'t-dim',  html:'&nbsp;&nbsp;&nbsp;&nbsp;[6]&nbsp; Exit' },
+    { k:'gap' },
+    { k:'choice', prompt:'&nbsp;&nbsp;Choose (1–6): ', answer:'1' },
+    { k:'gap' },
+    { k:'line',   cls:'t-dim',    html:'&nbsp;&nbsp;──────────────────────────────────────────────────' },
+    { k:'line',   cls:'t-purple', html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GROWTH REPORT &nbsp;·&nbsp; TODAY' },
+    { k:'line',   cls:'t-dim',    html:'&nbsp;&nbsp;──────────────────────────────────────────────────' },
+    { k:'gap' },
+    { k:'line',   cls:'t-win',  html:'&nbsp;&nbsp;⭐&nbsp; Yashasvi, what an exciting growth report!' },
+    { k:'gap' },
+    { k:'line',   cls:'t-text', html:'&nbsp;&nbsp;Your AI-voice-detection-demo-UI showcases' },
+    { k:'line',   cls:'t-text', html:'&nbsp;&nbsp;your Python + HTML skills beautifully.' },
+    { k:'gap' },
+    { k:'line',   cls:'t-win',  html:'&nbsp;&nbsp;📈&nbsp; 11 LeetCode problems · 2-day streak!' },
+    { k:'line',   cls:'t-text', html:"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;That's the habit that compounds." },
+    { k:'gap' },
+    { k:'line',   cls:'t-nudge', html:'&nbsp;&nbsp;💡&nbsp; Nudge: Try a LeetCode Medium tonight.' },
+    { k:'line',   cls:'t-text',  html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Consistency beats intensity. 🚀' },
+    { k:'gap' },
+    { k:'done' },
+  ];
+
+  let si = 0, going = false;
+
+  function next() {
+    if (si >= SEQ.length) return;
+    const s = SEQ[si++];
+
+    if (s.k === 'type') {
+      mainCur.style.display = 'inline-block';
+      let i = 0;
+      const iv = setInterval(() => {
+        typedCmd.textContent += s.text[i++];
+        if (i >= s.text.length) { clearInterval(iv); setTimeout(next, 500); }
+      }, 40);
+
+    } else if (s.k === 'pause') {
+      setTimeout(next, s.ms);
+
+    } else if (s.k === 'gap') {
+      addGap(); setTimeout(next, 55);
+
+    } else if (s.k === 'line') {
+      addLine(s.cls, s.html); setTimeout(next, 95);
+
+    } else if (s.k === 'choice') {
+      mainCur.style.display = 'none';
+      const d = document.createElement('div');
+      const ps = document.createElement('span');
+      ps.className = 't-purple';
+      ps.innerHTML = s.prompt;
+      const as = document.createElement('span');
+      as.className = 't-text';
+      const cs = document.createElement('span');
+      cs.className = 't-cursor';
+      d.append(ps, as, cs);
+      termBody.appendChild(d);
+      termBody.scrollTop = termBody.scrollHeight;
+      setTimeout(() => {
+        let i = 0;
+        const iv = setInterval(() => {
+          as.textContent += s.answer[i++];
+          termBody.scrollTop = termBody.scrollHeight;
+          if (i >= s.answer.length) {
+            clearInterval(iv);
+            cs.style.display = 'none';
+            setTimeout(next, 700);
+          }
+        }, 130);
+      }, 450);
+
+    } else if (s.k === 'done') {
+      const d = document.createElement('div');
+      d.innerHTML = '<span class="t-prompt">❯</span>&nbsp;<span class="t-cursor"></span>';
+      termBody.appendChild(d);
+      termBody.scrollTop = termBody.scrollHeight;
+    }
+  }
+
+  // Trigger when visible
+  const tobs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting && !going) {
+      going = true;
+      setTimeout(next, 700);
+      tobs.disconnect();
+    }
+  }, { threshold: 0.3 });
+  tobs.observe(document.getElementById('hero-terminal'));
+</script>
+
+</body>
+</html>
