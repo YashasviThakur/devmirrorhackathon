@@ -6,7 +6,7 @@ backend: http
 
 inputs:
   GMAIL_ACCESS_TOKEN:
-    kind: secret
+    kind: variable
     hint: "Google OAuth2 access token with gmail.readonly scope."
 
 base_url: "https://gmail.googleapis.com/gmail/v1"

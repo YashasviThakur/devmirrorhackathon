@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 from models import User, LinkedAccount, get_db, init_db
 from auth_router import router as auth_router, refresh_google_token_if_needed
+import coral_client
 
 _pool = ThreadPoolExecutor(max_workers=12)
 
@@ -430,6 +431,25 @@ def _categorize_subject(subject: str) -> str:
 
 
 def _fetch_gmail(access_token: str) -> list[dict[str, Any]]:
+    # Try Coral SQL first — passes token via env var so each user gets their own data
+    coral_rows = coral_client.get_gmail_opportunities(access_token)
+    if coral_rows is not None:
+        results = []
+        for row in coral_rows:
+            subject = row.get("snippet", "")[:80]
+            results.append({
+                "id":              row.get("id", ""),
+                "subject":         subject,
+                "from":            "",
+                "date":            "",
+                "snippet":         row.get("snippet", ""),
+                "category":        _categorize_subject(subject),
+                "ai_summary":      "",
+                "action_required": False,
+                "gmail_link":      f"https://mail.google.com/mail/u/0/#inbox/{row.get('id', '')}",
+            })
+        return results
+
     headers = {"Authorization": f"Bearer {access_token}"}
 
     list_resp = requests.get(
@@ -797,6 +817,44 @@ YOUTUBE_BASE = "https://www.googleapis.com/youtube/v3"
 
 
 def _fetch_youtube_liked(access_token: str) -> dict[str, Any]:
+    # Try Coral SQL first — passes token via env var so each user gets their own data
+    coral_rows = coral_client.get_youtube_liked_videos(access_token)
+    if coral_rows is not None:
+        raw_videos = [
+            {
+                "title":        r.get("title", ""),
+                "channel":      r.get("channel_title", ""),
+                "thumbnail":    r.get("thumbnail_url", ""),
+                "video_id":     r.get("video_id", ""),
+                "published_at": r.get("liked_at", ""),
+            }
+            for r in coral_rows
+        ]
+        titles = [v["title"] for v in raw_videos]
+        gemini_results = _classify_videos_gemini(titles)
+        cat_counts: dict[str, int] = defaultdict(int)
+        tech_videos: list[dict] = []
+        if gemini_results:
+            classified = {r["index"] - 1: r.get("category", "Technical") for r in gemini_results if isinstance(r, dict)}
+            for idx, video in enumerate(raw_videos):
+                if idx in classified:
+                    cat = classified[idx]
+                    cat_counts[cat] += 1
+                    if cat != "Non-Technical":
+                        tech_videos.append({**video, "category": cat})
+        else:
+            for video in raw_videos:
+                cat = _classify_video_keywords(video["title"], video["channel"])
+                cat_counts[cat] += 1
+                if cat != "Non-Technical":
+                    tech_videos.append({**video, "category": cat})
+        return {
+            "total": len(raw_videos),
+            "technical_count": len(tech_videos),
+            "categories": dict(cat_counts),
+            "top_videos": tech_videos[:20],
+        }
+
     headers = {"Authorization": f"Bearer {access_token}"}
     # playlistId=LL is the "Liked videos" playlist — returns items in reverse-liked order (most recent first)
     resp = requests.get(
