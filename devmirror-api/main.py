@@ -531,13 +531,13 @@ def _create_calendar_event(access_token: str, event: dict) -> dict:
 # ── YouTube watch-history parser ───────────────────────────────────────────────
 
 TECH_CATEGORIES: dict[str, list[str]] = {
-    "Algorithms & DS":   ["algorithm", "data structure", "leetcode", "dynamic programming", "graph", "tree", "sorting", "binary search"],
-    "Languages":         ["python", "javascript", "typescript", "java", "c++", "rust", "golang", "kotlin"],
-    "Web Dev":           ["react", "node", "fastapi", "django", "flask", "html", "css", "rest api", "graphql", "next.js"],
-    "ML / AI":           ["machine learning", "deep learning", "neural network", "nlp", "tensorflow", "pytorch", "llm", "transformer", "generative ai"],
-    "System Design":     ["system design", "microservices", "docker", "kubernetes", "aws", "cloud", "architecture", "scalability"],
-    "CS Fundamentals":   ["operating system", "database", "sql", "networking", "computer science", "compiler", "os", "dbms"],
-    "Interview Prep":    ["interview", "coding interview", "placement", "competitive programming", "codeforces", "hackerrank"],
+    "Algorithms & DS":   ["algorithm", "data structure", "leetcode", "dynamic programming", "graph", "tree", "sorting", "binary search", "dsa", "linked list", "stack", "queue", "heap", "recursion", "backtracking", "big o", "pseudocode", "flowchart", "flow of program"],
+    "Languages":         ["python", "javascript", "typescript", "java", "c++", "rust", "golang", "kotlin", "swift", "php", "ruby", "dart", "flutter", "programming language", "tutorial"],
+    "Web Dev":           ["react", "node", "fastapi", "django", "flask", "html", "css", "rest api", "graphql", "next.js", "vue", "angular", "tailwind", "web development", "frontend", "backend", "fullstack", "full stack", "express"],
+    "ML / AI":           ["machine learning", "deep learning", "neural network", "nlp", "tensorflow", "pytorch", "llm", "transformer", "generative ai", "artificial intelligence", "gpt", "chatgpt", "openai", "langchain", "computer vision", "data science", "ai forgets", "how ai"],
+    "System Design":     ["system design", "microservices", "docker", "kubernetes", "aws", "cloud", "architecture", "scalability", "devops", "linux", "terminal", "bash", "shell", "git", "github", "version control", "deployment", "yaml", "container", "networking", "ci/cd"],
+    "CS Fundamentals":   ["operating system", "database", "sql", "computer science", "compiler", "dbms", "computer network", "osi model", "tcp", "memory", "process", "thread", "concurrency", "data engineering"],
+    "Interview Prep":    ["interview", "coding interview", "placement", "competitive programming", "codeforces", "hackerrank", "faang", "maang", "tech career", "roadmap", "how to become", "software engineer"],
 }
 
 ALL_TECH_KEYWORDS = [kw for kws in TECH_CATEGORIES.values() for kw in kws]
@@ -573,7 +573,7 @@ def _classify_videos_gemini(titles: list[str]) -> list[dict]:
         url = GEMINI_URL.format(key=GEMINI_API_KEY)
         payload = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 500},
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2000},
         }
         resp = requests.post(url, json=payload, timeout=30)
         if resp.status_code in (429, 503):
