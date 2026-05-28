@@ -531,13 +531,136 @@ def _create_calendar_event(access_token: str, event: dict) -> dict:
 # ── YouTube watch-history parser ───────────────────────────────────────────────
 
 TECH_CATEGORIES: dict[str, list[str]] = {
-    "Algorithms & DS":   ["algorithm", "data structure", "leetcode", "dynamic programming", "graph", "tree", "sorting", "binary search", "dsa", "linked list", "stack", "queue", "heap", "recursion", "backtracking", "big o", "pseudocode", "flowchart", "flow of program"],
-    "Languages":         ["python", "javascript", "typescript", "java", "c++", "rust", "golang", "kotlin", "swift", "php", "ruby", "dart", "flutter", "programming language", "tutorial"],
-    "Web Dev":           ["react", "node", "fastapi", "django", "flask", "html", "css", "rest api", "graphql", "next.js", "vue", "angular", "tailwind", "web development", "frontend", "backend", "fullstack", "full stack", "express"],
-    "ML / AI":           ["machine learning", "deep learning", "neural network", "nlp", "tensorflow", "pytorch", "llm", "transformer", "generative ai", "artificial intelligence", "gpt", "chatgpt", "openai", "langchain", "computer vision", "data science", "ai"],
-    "System Design":     ["system design", "microservices", "docker", "kubernetes", "aws", "cloud", "architecture", "scalability", "devops", "linux", "terminal", "bash", "shell", "git", "github", "version control", "deployment", "yaml", "container", "networking", "ci/cd"],
-    "CS Fundamentals":   ["operating system", "database", "sql", "computer science", "compiler", "dbms", "computer network", "osi model", "tcp", "memory", "process", "thread", "concurrency", "data engineering"],
-    "Interview Prep":    ["interview", "coding interview", "placement", "competitive programming", "codeforces", "hackerrank", "faang", "maang", "tech career", "roadmap", "how to become", "software engineer"],
+    "Algorithms & DS": [
+        # Core DSA
+        "algorithm", "data structure", "dsa", "leetcode",
+        # Linear structures
+        "linked list", "singly linked", "doubly linked", "circular list",
+        "stack", "queue", "deque", "matrix", "array",
+        # Non-linear structures
+        "binary tree", "binary search tree", "bst", "avl tree", "red-black tree",
+        "trie", "segment tree", "fenwick tree", "binary indexed tree",
+        "graph", "directed graph", "undirected graph", "weighted graph",
+        # Algorithms
+        "sorting", "bubble sort", "selection sort", "insertion sort",
+        "merge sort", "quick sort", "heap sort", "radix sort",
+        "searching", "binary search", "ternary search", "linear search",
+        "two pointers", "sliding window", "recursion", "backtracking",
+        # Advanced paradigms
+        "divide and conquer", "greedy", "dynamic programming",
+        "bit manipulation", "bfs", "dfs", "dijkstra", "bellman-ford",
+        "floyd-warshall", "prim", "kruskal", "topological sort",
+        # Complexity
+        "time complexity", "space complexity", "big o", "asymptotic",
+        "pseudocode", "flowchart", "flow of program",
+    ],
+    "Languages": [
+        # Systems
+        "c programming", "c++", "rust", "golang", "go language",
+        # Enterprise
+        "java", "c#", ".net", "spring boot",
+        # Web/scripting
+        "python", "javascript", "typescript", "ruby", "php",
+        # Mobile/specialized
+        "kotlin", "swift", "dart", "flutter", "assembly",
+        "html", "css", "html5", "css3", "sass", "scss",
+        "programming language", "tutorial",
+        # OOP
+        "oops", "oop", "object oriented", "class and object",
+        "inheritance", "polymorphism", "abstraction", "encapsulation",
+        "interface", "abstract class", "access modifier",
+    ],
+    "Web Dev": [
+        # Frontend core
+        "dom manipulation", "semantic html", "flexbox", "css grid",
+        "vanilla js", "es6",
+        # Frameworks
+        "react", "angular", "vue", "next.js", "nuxt", "svelte", "remix",
+        # State management
+        "redux", "context api", "zustand", "mobx",
+        # Styling
+        "tailwind", "bootstrap", "material ui", "styled components",
+        # Backend
+        "node", "express", "nestjs", "fastapi", "django", "flask",
+        "spring", "rails", "laravel", "asp.net", "fiber",
+        # APIs
+        "rest api", "graphql", "grpc", "soap", "http",
+        "web development", "frontend", "backend", "fullstack", "full stack",
+        "web dev", "mvc",
+    ],
+    "ML / AI": [
+        # Core ML
+        "machine learning", "supervised learning", "unsupervised learning",
+        "regression", "classification", "clustering",
+        "scikit-learn", "xgboost",
+        # Deep learning
+        "deep learning", "neural network", "cnn", "rnn", "lstm",
+        "transformer", "pytorch", "tensorflow", "keras",
+        # Gen AI & LLMs
+        "generative ai", "large language model", "llm", "prompt engineering",
+        "rag", "retrieval augmented", "langchain", "llamaindex",
+        "vector database", "pinecone", "fine-tuning", "hugging face",
+        # Data science
+        "data science", "data engineering", "apache spark", "kafka",
+        "hadoop", "etl", "airflow", "dbt",
+        # General AI
+        "artificial intelligence", "gpt", "chatgpt", "openai",
+        "computer vision", "nlp", "ai",
+    ],
+    "System Design": [
+        # Design patterns
+        "system design", "design pattern", "singleton", "factory pattern",
+        "observer pattern", "decorator pattern",
+        # Architecture
+        "microservices", "monolithic", "serverless", "event-driven",
+        "architecture", "scalability", "load balancing",
+        "caching", "redis", "memcached", "sharding", "replication",
+        "rate limiting", "cdn",
+        # DevOps & infra
+        "docker", "kubernetes", "k8s", "helm", "containerd",
+        "jenkins", "github actions", "gitlab ci", "circleci", "argocd",
+        "terraform", "ansible", "pulumi", "cloudformation",
+        "prometheus", "grafana", "elk stack", "datadog",
+        # Cloud
+        "aws", "gcp", "azure", "ec2", "s3", "lambda", "cloud run",
+        "cloud", "devops", "ci/cd",
+        # Linux & tools
+        "linux", "terminal", "bash", "shell", "yaml", "container",
+        "git", "github", "gitlab", "version control",
+        "gitflow", "merge conflict", "rebase", "cherry-pick",
+    ],
+    "CS Fundamentals": [
+        # OS
+        "operating system", "os concepts", "process", "thread",
+        "concurrency", "multithreading", "asynchronous", "memory management",
+        "garbage collection", "cache locality", "rtos",
+        # Networking
+        "computer network", "networking", "osi model", "tcp", "ip protocol",
+        "dns", "http", "https", "ssl", "tls",
+        # Databases
+        "database", "sql", "postgresql", "mysql", "sqlite",
+        "mongodb", "nosql", "cassandra", "dynamodb", "neo4j",
+        "acid", "normalization", "indexing", "query optimization",
+        "dbms", "data warehouse", "elasticsearch",
+        # Security
+        "cybersecurity", "owasp", "penetration testing", "xss",
+        "sql injection", "csrf", "oauth", "jwt", "encryption",
+        "rsa", "aes", "hashing", "sha", "bcrypt",
+        # Compilers & low-level
+        "compiler", "computer science", "embedded", "microcontroller",
+        "arduino", "raspberry pi", "firmware", "mqtt",
+        # Math/CP niche
+        "modular inverse", "euclidean", "sieve", "prime factorization",
+        "combinatorics", "matrix exponentiation", "bitmask",
+    ],
+    "Interview Prep": [
+        "interview", "coding interview", "placement", "competitive programming",
+        "codeforces", "hackerrank", "faang", "maang",
+        "tech career", "roadmap", "how to become", "software engineer",
+        "tdd", "agile", "scrum", "kanban", "code review",
+        "unit testing", "integration testing", "jest", "cypress",
+        "junit", "selenium", "playwright",
+    ],
 }
 
 ALL_TECH_KEYWORDS = [kw for kws in TECH_CATEGORIES.values() for kw in kws]
