@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 from models import User, LinkedAccount, get_db, init_db
 from auth_router import router as auth_router, refresh_google_token_if_needed
-import coral_client
 
 _pool = ThreadPoolExecutor(max_workers=12)
 
@@ -124,7 +123,7 @@ _resolve_github_token = _resolve_github_username
 
 # ── GitHub data pipeline ───────────────────────────────────────────────────────
 
-def _fetch_github_cached(github_username: str, github_token: Optional[str] = None) -> dict[str, Any]:
+def _fetch_github_cached(github_username: str) -> dict[str, Any]:
     """Fetch GitHub data with 2-hour cache to avoid rate limits.
     Only caches successful responses (public_repos > 0 or followers > 0 or repos list returned)."""
     key = f"github:{github_username.lower()}"
@@ -132,7 +131,7 @@ def _fetch_github_cached(github_username: str, github_token: Optional[str] = Non
     if cached is not None:
         logger.info(f"[cache hit] GitHub:{github_username}")
         return cached
-    result = _fetch_github(github_username, github_token=github_token)
+    result = _fetch_github(github_username)
     # Don't cache rate-limited or not-found responses (they have 0 repos AND 0 followers)
     if result.get("public_repos", 0) > 0 or result.get("followers", 0) > 0 or result.get("repos", 0) > 0:
         _cache_set(key, result, ttl_seconds=7200)   # 2 hours
@@ -142,45 +141,7 @@ def _fetch_github_cached(github_username: str, github_token: Optional[str] = Non
     return result
 
 
-def _fetch_github(github_username: str, github_token: Optional[str] = None) -> dict[str, Any]:
-    """Fetch GitHub data via Coral SQL (per-user token), falling back to direct API."""
-    token = github_token or GITHUB_TOKEN
-    if token:
-        coral_user  = coral_client.get_github_user(token)
-        coral_repos = coral_client.get_github_repos(token, github_username, limit=10)
-        coral_events = coral_client.get_github_events(token, github_username, limit=100)
-        if coral_user and coral_repos is not None:
-            print(f"[coral] GitHub data for {github_username} fetched via Coral SQL")
-            from datetime import datetime, timedelta
-            week_ago = datetime.utcnow() - timedelta(days=7)
-            commits_week = 0
-            if coral_events:
-                for e in coral_events:
-                    try:
-                        created = datetime.strptime(e.get("created_at", "")[:19], "%Y-%m-%dT%H:%M:%S")
-                        if created >= week_ago:
-                            commits_week += 1
-                    except Exception:
-                        pass
-            top_repo = coral_repos[0].get("name", "") if coral_repos else ""
-            languages = list({r.get("language", "") for r in coral_repos if r.get("language")})
-            return {
-                "username":          coral_user.get("login", github_username),
-                "repos":             len(coral_repos),
-                "commits_week":      commits_week,
-                "top_repo":          top_repo,
-                "languages":         languages[:5],
-                "contribution_grid": [],
-                "public_repos":      coral_user.get("public_repos", 0),
-                "followers":         coral_user.get("followers", 0),
-                "avatar_url":        coral_user.get("avatar_url", ""),
-                "_events":           coral_events or [],
-            }
-    # Coral unavailable or no token — fall back to direct GitHub API
-    return _fetch_github_direct(github_username)
-
-
-def _fetch_github_direct(github_username: str) -> dict[str, Any]:
+def _fetch_github(github_username: str) -> dict[str, Any]:
     """Fetch GitHub data; uses GITHUB_TOKEN env var if set for higher rate limits."""
     headers = {"Accept": "application/vnd.github+json"}
     if GITHUB_TOKEN:
@@ -469,30 +430,6 @@ def _categorize_subject(subject: str) -> str:
 
 
 def _fetch_gmail(access_token: str) -> list[dict[str, Any]]:
-    # Try Coral first
-    coral_threads = coral_client.get_gmail_opportunities(access_token)
-    if coral_threads is not None:
-        print(f"[coral] Gmail threads fetched via Coral SQL ({len(coral_threads)} rows)")
-        # Coral returns id + snippet; wrap into the shape the rest of the app expects
-        return [
-            {
-                "id":            t.get("id", ""),
-                "subject":       "",
-                "from":          "",
-                "date":          "",
-                "snippet":       t.get("snippet", ""),
-                "category":      "internship",
-                "ai_summary":    "",
-                "action_required": True,
-                "gmail_link":    f"https://mail.google.com/mail/u/0/#inbox/{t.get('id', '')}",
-            }
-            for t in coral_threads
-        ]
-    # Coral unavailable — fall back to direct Gmail API
-    return _fetch_gmail_direct(access_token)
-
-
-def _fetch_gmail_direct(access_token: str) -> list[dict[str, Any]]:
     headers = {"Authorization": f"Bearer {access_token}"}
 
     list_resp = requests.get(
@@ -860,49 +797,6 @@ YOUTUBE_BASE = "https://www.googleapis.com/youtube/v3"
 
 
 def _fetch_youtube_liked(access_token: str) -> dict[str, Any]:
-    # Try Coral first
-    coral_videos = coral_client.get_youtube_liked_videos(access_token, limit=50)
-    if coral_videos is not None:
-        print(f"[coral] YouTube liked videos fetched via Coral SQL ({len(coral_videos)} rows)")
-        raw_videos = [
-            {
-                "title":        v.get("title", ""),
-                "channel":      v.get("channel_title", ""),
-                "thumbnail":    v.get("thumbnail_url", ""),
-                "video_id":     v.get("video_id", ""),
-                "published_at": v.get("liked_at", ""),
-            }
-            for v in coral_videos
-        ]
-        # Classify via Gemini/keywords as before
-        titles = [v["title"] for v in raw_videos]
-        gemini_results = _classify_videos_gemini(titles)
-        cat_counts: dict[str, int] = defaultdict(int)
-        tech_videos: list[dict] = []
-        if gemini_results:
-            classified = {r["index"] - 1: r.get("category", "Technical") for r in gemini_results if isinstance(r, dict)}
-            for idx, video in enumerate(raw_videos):
-                if idx in classified:
-                    cat = classified[idx]
-                    cat_counts[cat] += 1
-                    tech_videos.append({**video, "categories": [cat]})
-        else:
-            for video in raw_videos:
-                cat = _classify_video_keywords(video["title"])
-                if cat:
-                    cat_counts[cat] += 1
-                    tech_videos.append({**video, "categories": [cat]})
-        return {
-            "total":           len(coral_videos),
-            "technical_count": len(tech_videos),
-            "categories":      dict(cat_counts),
-            "top_videos":      tech_videos[:20],
-        }
-    # Coral unavailable — fall back to direct YouTube API
-    return _fetch_youtube_liked_direct(access_token)
-
-
-def _fetch_youtube_liked_direct(access_token: str) -> dict[str, Any]:
     headers = {"Authorization": f"Bearer {access_token}"}
     # playlistId=LL is the "Liked videos" playlist — returns items in reverse-liked order (most recent first)
     resp = requests.get(
@@ -1236,7 +1130,7 @@ async def data_github(user_id: int = Query(...), db: Session = Depends(get_db)):
     if not username:
         raise HTTPException(status_code=401, detail="GitHub username not set. Add your GitHub username in Dashboard settings.")
     try:
-        result = _fetch_github_cached(username, github_token=GITHUB_TOKEN or None)
+        result = _fetch_github_cached(username)
         result.pop("_events", None)   # don't expose raw events in API response
         return result
     except Exception as exc:
@@ -1299,7 +1193,7 @@ async def _fetch_all_data(user_id: int, db: Session) -> dict[str, Any]:
         if not gh_username:
             return None
         try:
-            d = await _run(_fetch_github_cached, gh_username, GITHUB_TOKEN or None)
+            d = await _run(_fetch_github_cached, gh_username)
             d.pop("_events", None)
             return d
         except Exception:
@@ -1593,7 +1487,7 @@ async def focus_compat(user_id: Optional[int] = Query(None), db: Session = Depen
     async def _gh():
         if gh_username:
             try:
-                d = await _run(_fetch_github_cached, gh_username, GITHUB_TOKEN or None)
+                d = await _run(_fetch_github_cached, gh_username)
                 d.pop("_events", None)
                 return d
             except Exception: pass
@@ -1781,7 +1675,7 @@ async def lvb_compat(user_id: Optional[int] = Query(None), db: Session = Depends
     gh_username = _resolve_github_username(user_id, db)
     if gh_username:
         try:
-            gh = _fetch_github_cached(gh_username, github_token=GITHUB_TOKEN or None)
+            gh = _fetch_github_cached(gh_username)
             commits_week = gh.get("commits_week", 0)
             gh_events = gh.get("_events", [])
         except Exception:
