@@ -342,31 +342,9 @@ def _empty_leetcode(username: str) -> dict[str, Any]:
 # ── Codeforces data pipeline ───────────────────────────────────────────────────
 
 def _fetch_codeforces(handle: str) -> dict[str, Any]:
-    # Try Coral first — falls back to direct API if Coral is unavailable
-    coral_user = coral_client.get_codeforces_user(handle)
-    coral_subs  = coral_client.get_codeforces_submissions(handle, limit=10)
-    if coral_user and coral_subs is not None:
-        print(f"[coral] Codeforces data for {handle} fetched via Coral SQL")
-        recent = [
-            {
-                "problem": r.get("problem_name", ""),
-                "verdict": r.get("verdict", ""),
-                "rating":  r.get("problem_rating", 0),
-                "date":    "",
-            }
-            for r in coral_subs
-        ]
-        return {
-            "handle":     coral_user.get("handle", handle),
-            "rating":     coral_user.get("rating", 0),
-            "max_rating": coral_user.get("max_rating", 0),
-            "rank":       coral_user.get("rank", "unrated"),
-            "max_rank":   coral_user.get("max_rank", "unrated"),
-            "solved":     len([r for r in coral_subs if r.get("verdict") == "OK"]),
-            "avatar":     "",
-            "recent":     recent,
-        }
-    # Coral unavailable — fall back to direct Codeforces API
+    # Coral is not used for Codeforces — its handle input is set once at
+    # CLI setup time and cannot change per-user request (multi-tenant issue).
+    # Direct Codeforces API is used instead — it's public and per-user.
     return _fetch_codeforces_direct(handle)
 
 
