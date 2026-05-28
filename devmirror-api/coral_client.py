@@ -34,7 +34,7 @@ def _run_sql(query: str, env: Optional[dict] = None) -> Optional[list[dict]]:
     try:
         merged_env = {**os.environ, **(env or {})}
         result = subprocess.run(
-            ["coral", "sql", "--json", query],
+            ["coral", "sql", "--format", "json", query],
             capture_output=True,
             text=True,
             timeout=20,

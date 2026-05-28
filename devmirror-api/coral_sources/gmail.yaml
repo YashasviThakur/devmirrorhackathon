@@ -6,7 +6,7 @@ backend: http
 
 inputs:
   GMAIL_ACCESS_TOKEN:
-    kind: variable
+    kind: secret
     hint: "Google OAuth2 access token with gmail.readonly scope."
 
 base_url: "https://gmail.googleapis.com/gmail/v1"
@@ -24,7 +24,7 @@ request_headers:
     value: application/json
 
 test_queries:
-  - SELECT emailAddress FROM gmail.profile LIMIT 1
+  - SELECT "emailAddress" FROM gmail.profile LIMIT 1
 
 tables:
 
