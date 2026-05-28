@@ -2,8 +2,10 @@
 coral_client.py — Thin wrapper around the Coral CLI for DevMirror.
 
 Coral (https://withcoral.com) exposes multiple APIs as a unified SQL interface.
-DevMirror uses it to query Gmail, YouTube, and Codeforces via SQL instead of
-making separate HTTP calls and stitching results manually.
+DevMirror uses it to query GitHub, Gmail, and YouTube via SQL.
+
+Per-user tokens (GitHub PAT, Gmail OAuth, YouTube OAuth) are passed as env vars
+at subprocess call time — so every user gets their own data, not a shared config.
 
 If Coral is not installed or not configured, every function returns None and
 main.py falls back to its existing direct API calls — the website keeps working.
@@ -130,3 +132,54 @@ def get_youtube_channel_stats(access_token: str) -> Optional[dict[str, Any]]:
         env=env,
     )
     return rows[0] if rows else None
+
+
+# ── GitHub ─────────────────────────────────────────────────────────────────────
+# Uses Coral's built-in GitHub source (sources/core/github).
+# GITHUB_TOKEN is passed per-request via env var — each user's PAT is used,
+# so every user sees their own repos and activity, not a shared config.
+
+def get_github_user(github_token: str) -> Optional[dict[str, Any]]:
+    """Authenticated GitHub user profile via Coral SQL."""
+    env = {"GITHUB_TOKEN": github_token}
+    rows = _run_sql(
+        "SELECT login, name, public_repos, followers, avatar_url "
+        "FROM github.user LIMIT 1",
+        env=env,
+    )
+    return rows[0] if rows else None
+
+
+def get_github_repos(github_token: str, username: str, limit: int = 10) -> Optional[list[dict]]:
+    """User's top repos ordered by last updated via Coral SQL."""
+    env = {"GITHUB_TOKEN": github_token}
+    return _run_sql(
+        f"SELECT name, language, stargazers_count, forks_count, updated_at "
+        f"FROM github.user_repos "
+        f"WHERE username = '{username}' "
+        f"ORDER BY updated_at DESC LIMIT {limit}",
+        env=env,
+    )
+
+
+def get_github_events(github_token: str, username: str, limit: int = 100) -> Optional[list[dict]]:
+    """Recent GitHub push events for commit counting via Coral SQL."""
+    env = {"GITHUB_TOKEN": github_token}
+    return _run_sql(
+        f"SELECT type, created_at, repo_name "
+        f"FROM github.received_events "
+        f"WHERE actor_login = '{username}' AND type = 'PushEvent' "
+        f"ORDER BY created_at DESC LIMIT {limit}",
+        env=env,
+    )
+
+
+def get_github_languages(github_token: str, owner: str, repo: str) -> Optional[list[dict]]:
+    """Language breakdown for a repo via Coral SQL."""
+    env = {"GITHUB_TOKEN": github_token}
+    return _run_sql(
+        f"SELECT name, bytes FROM github.languages "
+        f"WHERE owner = '{owner}' AND repo = '{repo}' "
+        f"LIMIT 10",
+        env=env,
+    )
