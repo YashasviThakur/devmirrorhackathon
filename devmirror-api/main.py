@@ -560,12 +560,13 @@ def _classify_videos_gemini(titles: list[str]) -> list[dict]:
         return []
     numbered = "\n".join(f"{i+1}. {t}" for i, t in enumerate(titles))
     prompt = (
-        "You are a classifier that identifies YouTube videos relevant to software development or computer science learning.\n\n"
-        "A video qualifies if it covers: programming languages, algorithms/DS, web/mobile dev, ML/AI, system design, "
-        "CS fundamentals, competitive programming, DevOps, databases, or tech career advice.\n\n"
+        "You are a classifier that identifies YouTube videos related to software development, computer science, or tech learning.\n\n"
+        "Be INCLUSIVE. A video qualifies if it covers ANY of: programming, algorithms, data structures, web/mobile/backend dev, "
+        "ML/AI, system design, DevOps, Linux, Git, databases, networking, competitive programming, tech career, coding interviews, "
+        "or any tech tutorial. When in doubt, include it.\n\n"
         "Video titles:\n"
         f"{numbered}\n\n"
-        "Return ONLY valid JSON — an array of objects for qualifying videos:\n"
+        "Return ONLY valid JSON — an array of objects for every qualifying video:\n"
         '[{"index": <1-based number>, "category": "<one of: Algorithms & DS | Languages | Web Dev | ML / AI | System Design | CS Fundamentals | Interview Prep>"}]\n'
         "If none qualify, return: []"
     )
@@ -577,15 +578,21 @@ def _classify_videos_gemini(titles: list[str]) -> list[dict]:
         }
         resp = requests.post(url, json=payload, timeout=30)
         if resp.status_code in (429, 503):
-            return []  # Rate limited — let caller fallback to keywords
+            print("[YouTube classifier] Gemini rate-limited, falling back to keywords")
+            return []
         if resp.status_code != 200:
+            print(f"[YouTube classifier] Gemini error {resp.status_code}, falling back to keywords")
             return []
         text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        print(f"[YouTube classifier] Gemini raw response: {text[:300]}")
         match = re.search(r'\[[\s\S]*\]', text)
         if not match:
             return []
-        return json.loads(match.group())
-    except Exception:
+        results = json.loads(match.group())
+        print(f"[YouTube classifier] Gemini classified {len(results)} technical videos out of {len(titles)}")
+        return results
+    except Exception as e:
+        print(f"[YouTube classifier] Gemini exception: {e}, falling back to keywords")
         return []
 
 
