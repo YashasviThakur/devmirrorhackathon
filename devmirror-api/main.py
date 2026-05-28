@@ -661,10 +661,11 @@ YOUTUBE_BASE = "https://www.googleapis.com/youtube/v3"
 
 def _fetch_youtube_liked(access_token: str) -> dict[str, Any]:
     headers = {"Authorization": f"Bearer {access_token}"}
+    # playlistId=LL is the "Liked videos" playlist — returns items in reverse-liked order (most recent first)
     resp = requests.get(
-        f"{YOUTUBE_BASE}/videos",
+        f"{YOUTUBE_BASE}/playlistItems",
         headers=headers,
-        params={"myRating": "like", "part": "snippet", "maxResults": 50},
+        params={"playlistId": "LL", "part": "snippet", "maxResults": 50},
         timeout=15,
     )
     if resp.status_code != 200:
@@ -672,16 +673,17 @@ def _fetch_youtube_liked(access_token: str) -> dict[str, Any]:
 
     items = resp.json().get("items", [])
 
-    # Build raw video list
+    # Build raw video list (most recently liked first)
     raw_videos = []
     for item in items:
         snippet = item.get("snippet", {})
+        resource = snippet.get("resourceId", {})
         raw_videos.append({
             "title":        snippet.get("title", ""),
-            "channel":      snippet.get("channelTitle", ""),
+            "channel":      snippet.get("videoOwnerChannelTitle", ""),
             "thumbnail":    snippet.get("thumbnails", {}).get("medium", {}).get("url", ""),
-            "video_id":     item.get("id", ""),
-            "published_at": snippet.get("publishedAt", ""),
+            "video_id":     resource.get("videoId", ""),
+            "published_at": snippet.get("publishedAt", ""),  # when it was added to the playlist
         })
 
     # Try Gemini first to classify which videos are study/technical content
