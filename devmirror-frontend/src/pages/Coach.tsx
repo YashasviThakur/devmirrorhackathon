@@ -154,7 +154,9 @@ export default function Coach() {
     try {
       const res = await api.ask(userId, "Give me today's single most important coding nudge in one sentence.")
       setNudge(res.response.replace(/\n/g, ' ').slice(0, 200))
-    } catch {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : ''
+      if (msg.includes('User not found')) { navigate('/login'); return }
       setNudge("Consistency beats intensity. Pick one problem and solve it completely today.")
     } finally {
       setLoadingNudge(false)
@@ -180,9 +182,14 @@ export default function Coach() {
         return next
       })
     } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      if (msg.includes('User not found')) {
+        navigate('/login')
+        return
+      }
       const errMsg: ChatMessage = {
         role: 'assistant',
-        content: `I encountered an error: ${e instanceof Error ? e.message : 'Unknown error'}. Please try again.`,
+        content: `I encountered an error: ${msg}. Please try again.`,
       }
       setMessages(prev => [...prev, errMsg])
     } finally {

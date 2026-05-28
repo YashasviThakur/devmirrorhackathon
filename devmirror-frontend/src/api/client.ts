@@ -6,6 +6,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   })
   if (!res.ok) {
+    if (res.status === 404) {
+      // Stale user_id in localStorage — clear it so the app redirects to login
+      clearUserId()
+    }
     const err = await res.text()
     throw new Error(err || `HTTP ${res.status}`)
   }
