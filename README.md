@@ -1,7 +1,7 @@
 <div align="center">
 
 <img src="https://img.shields.io/badge/version-2.0.8-6366f1?style=flat-square" />
-<img src="https://img.shields.io/badge/deployed-netlify-00C7B7?style=flat-square&logo=netlify&logoColor=white" />
+<img src="https://coraldevmirror.vercel.app/" />
 <img src="https://img.shields.io/badge/backend-railway-0B0D0E?style=flat-square&logo=railway&logoColor=white" />
 <img src="https://img.shields.io/badge/data-coral-f97316?style=flat-square" />
 <img src="https://img.shields.io/badge/license-MIT-f59e0b?style=flat-square" />
