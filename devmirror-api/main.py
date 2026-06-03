@@ -65,8 +65,9 @@ def _cache_set(key: str, value: Any, ttl_seconds: int = 7200) -> None:
 app = FastAPI(title="DevMirror API", version="2.0.0", docs_url="/docs")
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+_allow_all    = FRONTEND_URL.strip() == "*"
 _cors_origins = (
-    ["*"] if FRONTEND_URL == "*"
+    ["*"] if _allow_all
     else [FRONTEND_URL,
           "http://localhost:5173", "http://localhost:5174",
           "http://localhost:5175", "http://localhost:5176",
@@ -75,7 +76,7 @@ _cors_origins = (
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_credentials=True,
+    allow_credentials=not _allow_all,   # credentials + wildcard is invalid per spec
     allow_methods=["*"],
     allow_headers=["*"],
 )
