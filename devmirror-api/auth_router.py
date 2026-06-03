@@ -200,9 +200,8 @@ async def google_callback(
         db.add(user)
         db.flush()
     else:
-        user.name = name
-    else:
         logger.info(f"Found existing user: {email}")
+        user.name        = name
         user.account_type = account_type
         if institution_name:
             user.institution_name = institution_name
