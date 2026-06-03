@@ -64,24 +64,15 @@ def _cache_set(key: str, value: Any, ttl_seconds: int = 7200) -> None:
 
 app = FastAPI(title="DevMirror API", version="2.0.0", docs_url="/docs")
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
-_allow_all    = FRONTEND_URL.strip() == "*"
-_cors_origins = (
-    ["*"] if _allow_all
-    else list({
-        FRONTEND_URL,
-        "https://dev-mirror-two.vercel.app",   # hardcoded fallback
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://localhost:5176",
-        "http://localhost:5177",
-    })
-)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+# The frontend never sends credentials (no cookies/credentials: 'include'),
+# so allow_origins=["*"] + allow_credentials=False is safe and avoids all
+# CORS preflight failures regardless of how FRONTEND_URL is configured.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=not _allow_all,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
