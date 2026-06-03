@@ -183,6 +183,7 @@ async def google_callback(
     if not email:
         logger.error("Google did not return an email address")
         raise HTTPException(status_code=400, detail="Google did not return an email address")
+    name = userinfo.get("name") or userinfo.get("given_name") or email.split("@")[0]
 
     logger.info(f"Successfully authenticated user: {email}")
 
@@ -192,11 +193,14 @@ async def google_callback(
         logger.info(f"Creating new user: {email}")
         user = User(
             email=email,
+            name=name,
             account_type=account_type,
             institution_name=institution_name,
         )
         db.add(user)
         db.flush()
+    else:
+        user.name = name
     else:
         logger.info(f"Found existing user: {email}")
         user.account_type = account_type

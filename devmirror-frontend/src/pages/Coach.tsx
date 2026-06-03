@@ -282,7 +282,7 @@ export default function Coach() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold text-white">Today's Nudge</span>
+              <span className="text-xs font-semibold text-dm-purple-ll">Today's Nudge</span>
               <button
                 onClick={loadNudge}
                 disabled={loadingNudge}

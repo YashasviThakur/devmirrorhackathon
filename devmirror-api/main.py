@@ -1170,6 +1170,7 @@ async def get_user(user_id: int, db: Session = Depends(get_db)):
     return {
         "id":               user.id,
         "email":            user.email,
+        "name":             user.name or user.email.split("@")[0],
         "account_type":     user.account_type,
         "institution_name": user.institution_name,
         "goal_1":           user.goal_1 or "",

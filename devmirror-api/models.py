@@ -63,6 +63,7 @@ class User(Base):
 
     id               = Column(Integer, primary_key=True, index=True)
     email            = Column(String, unique=True, index=True, nullable=False)
+    name             = Column(String, nullable=True)
     password_hash    = Column(String, nullable=True)
     account_type     = Column(String, nullable=False, default="personal")
     institution_name = Column(String, nullable=True)
