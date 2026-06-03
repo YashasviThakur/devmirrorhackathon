@@ -15,7 +15,7 @@ import google.generativeai as genai
 logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 # ── Tool declarations ──────────────────────────────────────────────────────────
 
@@ -295,7 +295,11 @@ def run_agent(
         err = str(e)
         err_type = type(e).__name__
         logger.error(f"[Agent] GEMINI FAILED type={err_type} err={err[:400]}")
-        return {"response": f"[DEBUG] {err_type}: {err[:300]}", "tool_calls": [], "is_schedule": False, "scheduled_events": []}
+        if "429" in err or "quota" in err.lower() or "rate" in err.lower():
+            msg = "The AI coach is temporarily rate-limited. Please try again in a few minutes."
+        else:
+            msg = f"AI service error ({err_type}): {err[:150]}"
+        return {"response": msg, "tool_calls": [], "is_schedule": False, "scheduled_events": []}
 
     for _ in range(max_turns):
         # Check if any part is a function call
