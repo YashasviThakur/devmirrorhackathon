@@ -87,7 +87,7 @@ const TERMINAL_LINES = [
   '  -> Gmail      [##########]  4 leads',
   '  -> Calendar   [########--]  2 sessions',
   '',
-  '  * Cohere coaching...',
+  '  * Gemini coaching...',
   '',
   '  "You\'re building AND solving - that\'s rare."',
   '  "Today\'s nudge: try one System Design read."',
@@ -151,7 +151,7 @@ const SOURCES = [
 ]
 
 const FEATURES = [
-  { title: 'Daily AI Growth Report',   desc: 'Cohere analyses all your data and delivers a personalised coaching session every day.' },
+  { title: 'Daily AI Growth Report',   desc: 'Gemini analyses all your data and delivers a personalised coaching session every day.' },
   { title: 'Closed-Loop Scheduling',   desc: 'Ask the coach to plan your week and it automatically creates Google Calendar events for you.' },
   { title: 'Internship Radar',          desc: 'Gmail filter surfaces only internship, hackathon, and recruitment emails - zero noise.' },
   { title: 'Multi-Tenant & Encrypted', desc: 'OAuth tokens are Fernet-encrypted at rest. Institution accounts keep team goals isolated.' },
@@ -189,7 +189,7 @@ export default function Landing() {
       <section className="bg-[#1A1A14] pt-36 pb-28 px-8">
         <div className="max-w-[1400px] mx-auto">
           <p className="text-dm-dim text-[11px] font-mono uppercase tracking-widest mb-10">
-            Cohere · FastAPI · Multi-tenant · Fernet Encrypted
+            Gemini · FastAPI · Multi-tenant · Fernet Encrypted
           </p>
           <h1 className="text-display text-white mb-10 max-w-4xl">
             Built to track.<br />Built to grow.
@@ -197,7 +197,7 @@ export default function Landing() {
           <div className="flex flex-col lg:flex-row gap-10 items-start">
             <p className="text-white/55 text-lg font-light leading-relaxed max-w-md">
               DevMirror connects GitHub, LeetCode, Codeforces, Gmail, Calendar, and YouTube -
-              then sends it all to Cohere to coach you, schedule your week, and surface real internship leads.
+              then sends it all to Gemini to coach you, schedule your week, and surface real internship leads.
             </p>
             <div className="flex gap-4 shrink-0">
               <button
@@ -265,7 +265,7 @@ export default function Landing() {
             <Terminal />
           </div>
           <div className="order-1 lg:order-2">
-            <p className="dm-label text-dm-dim mb-6">Cohere</p>
+            <p className="dm-label text-dm-dim mb-6">Gemini</p>
             <h2 className="text-display-md text-white mb-8">
               AI that coaches,<br />not just reports.
             </h2>
@@ -422,7 +422,7 @@ export default function Landing() {
         <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <span className="font-black text-white text-xl tracking-tighter">DevMirror</span>
           <span className="text-dm-dim text-xs font-mono">
-            Pirates of the Coral-bean Hackathon · May 2026 · Powered by Cohere · FastAPI · Fernet
+            Google Cloud Rapid Hackathon · 2026 · Powered by Gemini · FastAPI · React
           </span>
         </div>
       </footer>

@@ -114,6 +114,10 @@ class LinkedAccount(Base):
     github_token_scope   = Column(EncryptedString, nullable=True)
     github_token_expiry  = Column(DateTime, nullable=True)
 
+    # GitLab — plain username + encrypted personal access token
+    gitlab_username      = Column(String, nullable=True)
+    gitlab_token         = Column(EncryptedString, nullable=True)
+
     user = relationship("User", back_populates="linked_accounts")
 
 

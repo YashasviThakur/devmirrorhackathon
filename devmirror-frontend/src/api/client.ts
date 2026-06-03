@@ -44,9 +44,11 @@ export interface UserProfile {
   created_at:        string | null
   has_google:        boolean
   has_github:        boolean
+  has_gitlab:        boolean
   github_username:   string | null
   codeforces_handle: string | null
   leetcode_username: string | null
+  gitlab_username:   string | null
 }
 
 export interface GitHubData {
@@ -157,6 +159,21 @@ export interface ChatResponse {
   response:         string
   scheduled_events: { id: string; summary: string; start: string; end: string }[]
   is_schedule:      boolean
+  tool_calls?:      { tool: string; args: string[] }[]
+}
+
+export interface GitLabData {
+  username:       string
+  name:           string
+  avatar_url:     string
+  profile_url:    string
+  total_projects: number
+  commits_week:   number
+  top_project:    string
+  languages:      string[]
+  open_mrs:       number
+  recent_mrs:     { title: string; state: string; project: string; created_at: string; web_url: string }[]
+  projects:       { name: string; description: string; stars: number; forks: number; last_activity: string; web_url: string }[]
 }
 
 export interface HealthData {
@@ -229,9 +246,12 @@ export const api = {
                      request<{ success: boolean }>(`/api/user/${id}/github-token`, { method: 'PATCH', body: JSON.stringify({ github_token: token }) }),
   updateGithubUsername: (id: number, username: string) =>
                      request<{ success: boolean }>(`/api/user/${id}/github-username`, { method: 'PATCH', body: JSON.stringify({ github_username: username }) }),
+  updateGitlabHandle: (id: number, username: string, token: string) =>
+                     request<{ success: boolean }>(`/api/user/${id}/gitlab-handle`, { method: 'PATCH', body: JSON.stringify({ gitlab_username: username, gitlab_token: token }) }),
 
   // Data sources
   github:     (userId: number) => request<GitHubData>(`/api/data/github?user_id=${userId}`),
+  gitlab:     (userId: number) => request<GitLabData>(`/api/data/gitlab?user_id=${userId}`),
   leetcode:   (userId: number) => request<LeetCodeData>(`/api/data/leetcode?user_id=${userId}`),
   codeforces: (userId: number) => request<CodeForcesData>(`/api/data/codeforces?user_id=${userId}`),
   gmail:      (userId: number) => request<GmailData>(`/api/data/gmail?user_id=${userId}`),

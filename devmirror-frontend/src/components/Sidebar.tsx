@@ -2,7 +2,7 @@ import { ElementType, useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Sparkles, Code2, Target, Scale, Mail,
-  Youtube, Terminal, LogOut, User, CalendarDays,
+  Youtube, Terminal, LogOut, User, CalendarDays, GitBranch,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { getUserId, clearUserId, api, UserProfile } from '../api/client'
@@ -12,6 +12,7 @@ const PRIMARY_NAV = [
   { to: '/gmail',     icon: Mail,            label: 'Gmail Radar' },
   { to: '/youtube',   icon: Youtube,         label: 'YouTube'     },
   { to: '/calendar',  icon: CalendarDays,    label: 'Calendar'    },
+  { to: '/gitlab',    icon: GitBranch,       label: 'GitLab'      },
   { to: '/coach',     icon: Terminal,        label: 'AI Coach'    },
 ]
 

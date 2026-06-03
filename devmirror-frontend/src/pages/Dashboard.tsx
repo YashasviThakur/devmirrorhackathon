@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import {
   Github, Code2, Trophy, Calendar, RefreshCw,
   Flame, Star, TrendingUp, LogIn, Settings2,
-  CheckCircle2, XCircle, ChevronRight,
+  CheckCircle2, XCircle, ChevronRight, GitBranch, GitMerge,
 } from 'lucide-react'
 import clsx from 'clsx'
 import PageShell from '../components/PageShell'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { api, GitHubData, LeetCodeData, CodeForcesData, CalendarData, UserProfile } from '../api/client'
+import { api, GitHubData, LeetCodeData, CodeForcesData, CalendarData, UserProfile, GitLabData } from '../api/client'
 import { useUserId } from '../hooks/useUserId'
 
 // -- GitHub contribution grid ---------------------------------------------------
@@ -116,6 +116,7 @@ export default function Dashboard() {
 
   const [profile,    setProfile]    = useState<UserProfile | null>(null)
   const [github,     setGithub]     = useState<GitHubData | null>(null)
+  const [gitlab,     setGitlab]     = useState<GitLabData | null>(null)
   const [leetcode,   setLeetcode]   = useState<LeetCodeData | null>(null)
   const [codeforces, setCodeforces] = useState<CodeForcesData | null>(null)
   const [calendar,   setCalendar]   = useState<CalendarData | null>(null)
@@ -133,6 +134,8 @@ export default function Dashboard() {
   const [cfHandle,   setCfHandle]   = useState('')
   const [lcHandle,   setLcHandle]   = useState('')
   const [ghUsername, setGhUsername] = useState('')
+  const [glUsername, setGlUsername] = useState('')
+  const [glToken,    setGlToken]    = useState('')
   const [savingHandles, setSavingHandles] = useState(false)
 
   const loadProfile = useCallback(async (uid: number) => {
@@ -145,6 +148,11 @@ export default function Dashboard() {
       setCfHandle(p.codeforces_handle ?? '')
       setLcHandle(p.leetcode_username ?? '')
       setGhUsername(p.github_username ?? '')
+      setGlUsername(p.gitlab_username ?? '')
+      // Auto-open accounts panel on first login (no platforms connected yet)
+      if (!p.github_username && !p.leetcode_username && !p.codeforces_handle) {
+        setShowSettings(true)
+      }
     } catch { /* silently ignore */ }
   }, [])
 
@@ -153,6 +161,7 @@ export default function Dashboard() {
     await loadProfile(uid)
     await Promise.allSettled([
       api.github(uid).then(setGithub).catch(() => null),
+      api.gitlab(uid).then(setGitlab).catch(() => null),
       api.leetcode(uid).then(setLeetcode).catch(() => null),
       api.codeforces(uid).then(setCodeforces).catch(() => null),
       api.calendar(uid).then(setCalendar).catch(() => null),
@@ -200,6 +209,7 @@ export default function Dashboard() {
     try {
       await api.updateHandles(userId, { codeforces_handle: cfHandle, leetcode_username: lcHandle })
       if (ghUsername.trim()) await api.updateGithubUsername(userId, ghUsername.trim())
+      if (glUsername.trim() && glToken.trim()) await api.updateGitlabHandle(userId, glUsername.trim(), glToken.trim())
       await loadData(userId)
       setShowSettings(false)
     } finally {
@@ -252,7 +262,7 @@ export default function Dashboard() {
       {showSettings && (
         <div className="dm-card p-6 mb-6 border-dm-purple/25 bg-dm-purple-dim">
           <div className="dm-label mb-4">Connect Your Accounts</div>
-          <div className="grid md:grid-cols-3 gap-4 mb-5">
+          <div className="grid md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="dm-label block mb-1.5">LeetCode Username</label>
               <input value={lcHandle} onChange={e => setLcHandle(e.target.value)} placeholder="your-lc-username" className="dm-input text-sm h-9" />
@@ -264,6 +274,16 @@ export default function Dashboard() {
             <div>
               <label className="dm-label block mb-1.5">GitHub Username</label>
               <input value={ghUsername} onChange={e => setGhUsername(e.target.value)} type="text" placeholder="e.g. torvalds" className="dm-input text-sm h-9" />
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label className="dm-label block mb-1.5">GitLab Username</label>
+              <input value={glUsername} onChange={e => setGlUsername(e.target.value)} placeholder="your-gitlab-username" className="dm-input text-sm h-9" />
+            </div>
+            <div>
+              <label className="dm-label block mb-1.5">GitLab Token <span className="text-dm-muted">(read_api scope)</span></label>
+              <input value={glToken} onChange={e => setGlToken(e.target.value)} type="password" placeholder="glpat-xxxxxxxxxxxxxxxxxxxx" className="dm-input text-sm h-9" />
             </div>
           </div>
           <div className="flex gap-3">
@@ -455,6 +475,66 @@ export default function Dashboard() {
             )}
           </div>
 
+          {/* GitLab */}
+          <div className="dm-card p-5">
+            <div className="flex items-center gap-2 mb-5">
+              <GitBranch size={15} className="text-dm-purple-ll" />
+              <span className="text-sm font-semibold text-dm-text">GitLab</span>
+              {gitlab && (
+                <span className="dm-badge-purple ml-auto text-[10px]">{gitlab.commits_week} commits/wk</span>
+              )}
+            </div>
+            {gitlab ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <div className="font-head font-bold text-2xl text-dm-purple-ll">{gitlab.total_projects}</div>
+                    <div className="text-[10px] text-dm-muted">Projects</div>
+                  </div>
+                  <div>
+                    <div className="font-head font-bold text-xl text-dm-green">{gitlab.commits_week}</div>
+                    <div className="text-[10px] text-dm-muted">Commits</div>
+                  </div>
+                  <div>
+                    <div className="font-head font-bold text-xl text-dm-amber">{gitlab.open_mrs}</div>
+                    <div className="text-[10px] text-dm-muted">Open MRs</div>
+                  </div>
+                </div>
+                {gitlab.top_project && (
+                  <div className="pt-3 border-t border-dm-border">
+                    <div className="text-[10px] text-dm-muted mb-1">Top project</div>
+                    <div className="text-sm font-medium text-dm-purple-ll font-mono truncate">{gitlab.top_project}</div>
+                  </div>
+                )}
+                {gitlab.languages.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap pt-2 border-t border-dm-border">
+                    {gitlab.languages.map(l => (
+                      <span key={l} className="dm-badge-purple text-[10px]">{l}</span>
+                    ))}
+                  </div>
+                )}
+                {gitlab.open_mrs > 0 && gitlab.recent_mrs.length > 0 && (
+                  <div className="space-y-1.5 border-t border-dm-border pt-3">
+                    {gitlab.recent_mrs.slice(0, 3).map((mr, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <GitMerge size={11} className="text-dm-amber shrink-0" />
+                        <span className="text-xs text-dm-text truncate flex-1">{mr.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <EmptyState
+                icon={GitBranch}
+                title="GitLab not connected"
+                desc="Add your GitLab username and token in Accounts settings"
+                action="Open settings"
+                onAction={() => setShowSettings(true)}
+              />
+            )}
+          </div>
+
           {/* Google Calendar */}
           <div className="dm-card p-5">
             <div className="flex items-center gap-2 mb-5">
@@ -503,12 +583,13 @@ export default function Dashboard() {
           {/* Quick navigation row ? spans full width */}
           <div className="md:col-span-2 xl:col-span-3">
             <div className="dm-label mb-3">Quick Access</div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {[
-                { to: '/gmail',         icon: TrendingUp,  label: 'Gmail Radar',   badge: 'Opportunities', accent: 'text-red-400',    bg: 'bg-red-500/10'    },
-                { to: '/youtube',       icon: TrendingUp,  label: 'YouTube',        badge: 'Watch History', accent: 'text-red-500',    bg: 'bg-red-500/10'    },
-                { to: '/coach',         icon: TrendingUp,  label: 'AI Coach',       badge: 'Cohere',        accent: 'text-dm-purple-ll', bg: 'bg-dm-purple/15' },
-                { to: '/growth-report', icon: TrendingUp,  label: 'Growth Report',  badge: 'Daily AI',      accent: 'text-dm-amber',   bg: 'bg-dm-amber/10'   },
+                { to: '/gmail',         label: 'Gmail Radar',   badge: 'Opportunities', accent: 'text-red-400',    bg: 'bg-red-500/10'    },
+                { to: '/youtube',       label: 'YouTube',        badge: 'Watch History', accent: 'text-red-500',    bg: 'bg-red-500/10'    },
+                { to: '/gitlab',        label: 'GitLab',         badge: 'MCP Partner',   accent: 'text-dm-purple-ll', bg: 'bg-dm-purple/15' },
+                { to: '/coach',         label: 'AI Coach',       badge: 'Gemini 3',      accent: 'text-dm-green',   bg: 'bg-dm-green/10'   },
+                { to: '/growth-report', label: 'Growth Report',  badge: 'Daily AI',      accent: 'text-dm-amber',   bg: 'bg-dm-amber/10'   },
               ].map(({ to, label, badge, accent, bg }) => (
                 <button
                   key={to}

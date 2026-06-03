@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, ReactElement } from 'react'
 import {
   Terminal, Send, Sparkles, CalendarCheck, RefreshCw,
-  ChevronRight, LogIn, Bot,
+  ChevronRight, LogIn, Bot, Wrench, ChevronDown,
 } from 'lucide-react'
 import clsx from 'clsx'
 import PageShell from '../components/PageShell'
@@ -86,6 +86,8 @@ function ScheduledEvents({ events }: { events: ChatResponse['scheduled_events'] 
 
 // -- Chat bubble ----------------------------------------------------------------
 function ChatBubble({ msg, response }: { msg: ChatMessage; response?: ChatResponse }) {
+  const [open, setOpen] = useState(false)
+  void open; void setOpen
   const isUser = msg.role === 'user'
   return (
     <div className={clsx('flex gap-3 items-start', isUser && 'flex-row-reverse')}>
@@ -109,11 +111,56 @@ function ChatBubble({ msg, response }: { msg: ChatMessage; response?: ChatRespon
           <span className="text-sm">{msg.content}</span>
         ) : (
           <>
+            {response?.tool_calls && response.tool_calls.length > 0 && (
+              <AgentReasoningPanel toolCalls={response.tool_calls} />
+            )}
             <MarkdownContent content={msg.content} />
             {response && <ScheduledEvents events={response.scheduled_events} />}
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// -- Agent reasoning panel ------------------------------------------------------
+const TOOL_LABELS: Record<string, string> = {
+  fetch_github_stats:      'GitHub',
+  fetch_leetcode_stats:    'LeetCode',
+  fetch_codeforces_stats:  'Codeforces',
+  fetch_gitlab_stats:      'GitLab',
+  fetch_gmail_opportunities: 'Gmail',
+  fetch_calendar_events:   'Calendar',
+  schedule_calendar_event: 'Calendar (write)',
+  get_user_profile:        'User Profile',
+}
+
+function AgentReasoningPanel({ toolCalls }: { toolCalls: { tool: string; args: string[] }[] }) {
+  const [open, setOpen] = useState(false)
+  if (!toolCalls.length) return null
+  return (
+    <div className="mt-3 rounded-lg border border-dm-purple/20 bg-dm-surface-2/40 overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-dm-muted hover:text-dm-text transition-colors"
+      >
+        <Wrench size={11} className="text-dm-purple-ll" />
+        <span className="font-mono">{toolCalls.length} tool{toolCalls.length > 1 ? 's' : ''} called</span>
+        <ChevronDown size={11} className={clsx('ml-auto transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-1.5 border-t border-dm-border/50">
+          {toolCalls.map((tc, i) => (
+            <div key={i} className="flex items-center gap-2 text-[11px]">
+              <span className="w-1 h-1 rounded-full bg-dm-purple-ll shrink-0" />
+              <span className="text-dm-purple-ll font-mono">{TOOL_LABELS[tc.tool] ?? tc.tool}</span>
+              {tc.args.length > 0 && (
+                <span className="text-dm-muted">({tc.args.join(', ')})</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -225,7 +272,7 @@ export default function Coach() {
   return (
     <PageShell
       title="AI Coach"
-      subtitle="Powered by Cohere · Knows your goals · Can schedule Calendar events"
+      subtitle="Powered by Gemini 3 · Multi-step agent · Knows your goals · Can schedule Calendar events"
     >
       <div className="flex flex-col h-[calc(100vh-10rem)] max-h-[820px] gap-5">
         {/* Today's nudge */}
@@ -258,7 +305,7 @@ export default function Coach() {
           <div className="flex items-center gap-2 px-4 py-3 border-b border-dm-border bg-dm-surface-2/60 shrink-0">
             <Terminal size={13} className="text-dm-muted" />
             <span className="text-xs text-dm-muted font-mono">devmirror:~/coach</span>
-            <span className="ml-auto dm-badge-purple text-[10px]">Cohere</span>
+            <span className="ml-auto dm-badge-purple text-[10px]">Gemini 3 Agent</span>
           </div>
 
           {/* Messages */}
@@ -271,8 +318,8 @@ export default function Coach() {
                 <div className="text-center">
                   <div className="font-head font-semibold text-dm-text mb-1">DevMirror Coach</div>
                   <div className="text-sm text-dm-muted max-w-sm">
-                    Your personal AI mentor. Ask about focus, scheduling, DSA, career strategy, or
-                    request a study plan to be added directly to your Google Calendar.
+                    Your personal AI agent. Powered by Gemini 3 on Google Cloud — fetches live data from GitHub, GitLab,
+                    LeetCode, Codeforces, Gmail, and Calendar before every answer.
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center max-w-lg">

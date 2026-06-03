@@ -32,6 +32,9 @@ logger = logging.getLogger(__name__)
 from models import User, LinkedAccount, get_db, init_db
 from auth_router import router as auth_router, refresh_google_token_if_needed
 import coral_client
+import gitlab_client
+import mongodb_client
+from agent_tools import AgentContext, run_agent
 
 _pool = ThreadPoolExecutor(max_workers=12)
 
@@ -80,11 +83,11 @@ app.include_router(auth_router)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY", "")
-GITHUB_TOKEN   = os.getenv("GITHUB_TOKEN", "")   # legacy env fallback
+GITHUB_TOKEN   = os.getenv("GITHUB_TOKEN", "")
+GITLAB_TOKEN   = os.getenv("GITLAB_TOKEN", "")
 
-# Use Cohere if available, fall back to Gemini
 USE_COHERE = bool(COHERE_API_KEY)
-logger.info(f"🔑 COHERE_API_KEY loaded: {bool(COHERE_API_KEY)} | Using {'COHERE' if USE_COHERE else 'GEMINI'}")
+logger.info(f"AI backend: {'Gemini 3 Agent' if GEMINI_API_KEY else 'unavailable'} | MongoDB: {bool(os.getenv('MONGODB_URI'))} | GitLab: {bool(GITLAB_TOKEN)}")
 
 
 @app.on_event("startup")
@@ -1127,6 +1130,9 @@ class GithubTokenUpdate(BaseModel):
 class GithubUsernameUpdate(BaseModel):
     github_username: str
 
+class GitlabHandleUpdate(BaseModel):
+    gitlab_username: str
+    gitlab_token:    str
 
 class AskRequest(BaseModel):
     user_id:  int
@@ -1140,16 +1146,18 @@ async def health(db: Session = Depends(get_db)):
     total_users = db.query(User).count()
     return {
         "status":      "ok",
-        "version":     "2.0.0",
+        "version":     "3.0.0",
         "total_users": total_users,
         "sources":     {
             "github":     "ok" if GITHUB_TOKEN else "not_configured",
+            "gitlab":     "ok" if GITLAB_TOKEN else "not_configured",
             "leetcode":   "ok",
             "codeforces": "ok",
             "gmail":      "ok",
             "calendar":   "ok",
             "youtube":    "ok",
             "gemini":     "ok" if GEMINI_API_KEY else "not_configured",
+            "mongodb":    "ok" if mongodb_client.is_connected() else "not_configured",
         },
     }
 
@@ -1173,6 +1181,8 @@ async def get_user(user_id: int, db: Session = Depends(get_db)):
         "github_username":   linked.github_access_token if linked else None,
         "codeforces_handle": linked.codeforces_handle if linked else None,
         "leetcode_username": linked.leetcode_username if linked else None,
+        "gitlab_username":   linked.gitlab_username if linked else None,
+        "has_gitlab":        bool(linked and linked.gitlab_username and linked.gitlab_token),
     }
 
 
@@ -1245,6 +1255,23 @@ async def update_github_username(
     return {"success": True}
 
 
+@app.patch("/api/user/{user_id}/gitlab-handle")
+async def update_gitlab_handle(
+    user_id: int,
+    body: GitlabHandleUpdate,
+    db: Session = Depends(get_db),
+):
+    user   = _get_user_or_404(user_id, db)
+    linked = user.linked_accounts
+    if not linked:
+        linked = LinkedAccount(user_id=user.id)
+        db.add(linked)
+    linked.gitlab_username = body.gitlab_username.strip().lstrip("@")
+    linked.gitlab_token    = body.gitlab_token.strip()
+    db.commit()
+    return {"success": True}
+
+
 # ── Per-source data endpoints ──────────────────────────────────────────────────
 
 @app.get("/api/data/github")
@@ -1294,6 +1321,20 @@ async def data_gmail(user_id: int = Query(...), db: Session = Depends(get_db)):
         "summary": f"Found {len(emails)} relevant developer opportunity email(s).",
         "emails":  emails,
     }
+
+
+@app.get("/api/data/gitlab")
+async def data_gitlab(user_id: int = Query(...), db: Session = Depends(get_db)):
+    user   = _get_user_or_404(user_id, db)
+    linked = user.linked_accounts
+    gl_username = linked.gitlab_username if linked else None
+    gl_token    = linked.gitlab_token    if linked else None
+    if not gl_username or not gl_token:
+        raise HTTPException(status_code=400, detail="GitLab not connected. Add your GitLab username and token in settings.")
+    try:
+        return await _run(gitlab_client.fetch_gitlab, gl_username, gl_token)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.get("/api/data/calendar")
@@ -1404,42 +1445,77 @@ async def data_youtube_liked(user_id: int = Query(...), db: Session = Depends(ge
 
 @app.post("/api/agent/ask")
 async def ask_agent(body: AskRequest, db: Session = Depends(get_db)):
-    user = _get_user_or_404(body.user_id, db)
+    user   = _get_user_or_404(body.user_id, db)
+    linked = user.linked_accounts
 
-    system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(
-        goal_1=user.goal_1 or "Not set",
-        goal_2=user.goal_2 or "Not set",
-        goal_3=user.goal_3 or "Not set",
-        today=datetime.utcnow().strftime("%Y-%m-%d"),
+    g_token     = refresh_google_token_if_needed(body.user_id, db)
+    gh_username = _resolve_github_username(body.user_id, db)
+    gl_username = linked.gitlab_username if linked else ""
+    gl_token    = linked.gitlab_token    if linked else ""
+    lc_handle   = linked.leetcode_username  if linked else ""
+    cf_handle   = linked.codeforces_handle  if linked else ""
+
+    def _get_user_data(uid: int):
+        return {
+            "goal_1":           user.goal_1 or "Not set",
+            "goal_2":           user.goal_2 or "Not set",
+            "goal_3":           user.goal_3 or "Not set",
+            "github_username":  gh_username or "",
+            "gitlab_username":  gl_username or "",
+            "leetcode_username": lc_handle or "",
+            "codeforces_handle": cf_handle or "",
+        }
+
+    def _gmail_for_agent(uid: int):
+        if not g_token:
+            return []
+        return _fetch_gmail(g_token)
+
+    def _calendar_for_agent(uid: int):
+        if not g_token:
+            return []
+        return _fetch_calendar_events(g_token)
+
+    def _create_cal_for_agent(uid: int, event: dict):
+        if not g_token:
+            return {}
+        return _create_calendar_event(g_token, event)
+
+    ctx = AgentContext(
+        user_id          = body.user_id,
+        goal_1           = user.goal_1 or "Not set",
+        goal_2           = user.goal_2 or "Not set",
+        goal_3           = user.goal_3 or "Not set",
+        fetch_github_fn  = _fetch_github_cached,
+        fetch_leetcode_fn= _fetch_leetcode,
+        fetch_codeforces_fn = _fetch_codeforces,
+        fetch_gitlab_fn  = gitlab_client.fetch_gitlab,
+        fetch_gmail_fn   = _gmail_for_agent,
+        fetch_calendar_fn= _calendar_for_agent,
+        create_calendar_fn = _create_cal_for_agent,
+        get_user_fn      = _get_user_data,
+        gitlab_username  = gl_username or "",
+        gitlab_token     = gl_token    or "",
     )
 
-    raw_response, gemini_ok = call_ai(system_prompt, body.question)
-    scheduled_events: list[dict] = []
+    result = await _run(run_agent, body.question, ctx)
 
-    if gemini_ok and _is_scheduling_request(body.question):
-        events_payload = _extract_json_array(raw_response)
-        if events_payload:
-            g_token = refresh_google_token_if_needed(body.user_id, db)
-            if g_token:
-                for ev in events_payload:
-                    if "start_time" in ev and "end_time" in ev:
-                        created = _create_calendar_event(g_token, ev)
-                        scheduled_events.append({
-                            "id":      created.get("id", ""),
-                            "summary": ev.get("summary", ""),
-                            "start":   ev.get("start_time", ""),
-                            "end":     ev.get("end_time", ""),
-                        })
-            return {
-                "response":         f"I've scheduled {len(scheduled_events)} event(s) on your Google Calendar.",
-                "scheduled_events": scheduled_events,
-                "is_schedule":      True,
-            }
+    mongodb_client.save_chat_message(body.user_id, "user",      body.question)
+    mongodb_client.save_chat_message(body.user_id, "assistant", result["response"],
+                                     tool_calls=result.get("tool_calls", []))
+    mongodb_client.save_agent_session(
+        body.user_id, body.question,
+        result.get("tool_calls", []), result["response"],
+    )
 
     return {
-        "response":         raw_response,
-        "scheduled_events": [],
-        "is_schedule":      False,
+        "response":         result["response"],
+        "scheduled_events": [
+            {"id": "", "summary": e["summary"], "start": e["start"], "end": e["end"]}
+            for e in result.get("scheduled_events", [])
+        ],
+        "is_schedule":      result.get("is_schedule", False),
+        "tool_calls":       result.get("tool_calls", []),
     }
 
 

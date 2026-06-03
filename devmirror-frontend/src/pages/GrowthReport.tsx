@@ -61,7 +61,7 @@ export default function GrowthReport() {
   return (
     <PageShell
       title="Growth Report"
-      subtitle="AI-generated daily coaching · Powered by Cohere"
+      subtitle="AI-generated daily coaching · Powered by Gemini"
       actions={
         <button onClick={load} disabled={loading} className="dm-btn-ghost flex items-center gap-2 text-sm">
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -84,7 +84,7 @@ export default function GrowthReport() {
           <div className="flex items-center justify-between px-5 py-4 border-b border-dm-border bg-dm-surface-2/60">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-dm-purple animate-pulse-slow" />
-              <span className="text-sm font-semibold text-dm-text font-head">Cohere Report</span>
+              <span className="text-sm font-semibold text-dm-text font-head">Gemini Report</span>
             </div>
             {d.generated_at && (
               <div className="flex items-center gap-1.5 text-xs text-dm-muted font-mono">

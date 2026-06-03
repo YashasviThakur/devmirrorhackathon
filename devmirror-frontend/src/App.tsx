@@ -12,6 +12,7 @@ import FocusToday   from './pages/FocusToday'
 import LearnVsBuild from './pages/LearnVsBuild'
 import Internship   from './pages/Internship'
 import Calendar     from './pages/Calendar'
+import GitLabPage   from './pages/GitLab'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null }
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="/gmail"       element={<Gmail />} />
           <Route path="/youtube"     element={<YouTube />} />
           <Route path="/calendar"    element={<Calendar />} />
+          <Route path="/gitlab"      element={<GitLabPage />} />
           <Route path="/coach"       element={<Coach />} />
 
           {/* Legacy analytics pages */}

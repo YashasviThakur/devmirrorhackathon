@@ -156,7 +156,7 @@ export default function Calendar() {
               <div className="w-2 h-2 rounded-full bg-dm-purple animate-pulse-slow" />
               <Sparkles size={13} className="text-dm-purple-ll" />
               <span className="text-sm font-semibold text-dm-text">AI Planner</span>
-              <span className="text-[10px] text-dm-muted ml-auto">Powered by Cohere</span>
+              <span className="text-[10px] text-dm-muted ml-auto">Powered by Gemini</span>
             </div>
 
             {/* Messages */}
