@@ -293,12 +293,9 @@ def run_agent(
         response = chat.send_message(question)
     except Exception as e:
         err = str(e)
-        if "429" in err or "quota" in err.lower() or "rate" in err.lower():
-            msg = "The AI coach is temporarily rate-limited. Please try again in a few minutes."
-        else:
-            msg = f"AI service error: {err[:200]}"
-        logger.error(f"[Agent] initial send_message failed: {err}")
-        return {"response": msg, "tool_calls": [], "is_schedule": False, "scheduled_events": []}
+        err_type = type(e).__name__
+        logger.error(f"[Agent] GEMINI FAILED type={err_type} err={err[:400]}")
+        return {"response": f"[DEBUG] {err_type}: {err[:300]}", "tool_calls": [], "is_schedule": False, "scheduled_events": []}
 
     for _ in range(max_turns):
         # Check if any part is a function call
