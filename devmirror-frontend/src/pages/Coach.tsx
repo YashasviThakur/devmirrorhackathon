@@ -194,13 +194,20 @@ export default function Coach() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Load today's nudge on mount
-  const loadNudge = useCallback(async () => {
+  // Load today's nudge — cached in sessionStorage so it only calls the API once per browser session
+  const loadNudge = useCallback(async (force = false) => {
     if (!userId) return
+    const cacheKey = `dm_nudge_${userId}_${new Date().toDateString()}`
+    if (!force) {
+      const cached = sessionStorage.getItem(cacheKey)
+      if (cached) { setNudge(cached); return }
+    }
     setLoadingNudge(true)
     try {
       const res = await api.ask(userId, "Give me today's single most important coding nudge in one sentence.")
-      setNudge(res.response.replace(/\n/g, ' ').slice(0, 200))
+      const text = res.response.replace(/\n/g, ' ').slice(0, 200)
+      sessionStorage.setItem(cacheKey, text)
+      setNudge(text)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : ''
       if (msg.includes('User not found')) { navigate('/login'); return }
@@ -284,7 +291,7 @@ export default function Coach() {
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs font-semibold text-dm-purple-ll">Today's Nudge</span>
               <button
-                onClick={loadNudge}
+                onClick={() => loadNudge(true)}
                 disabled={loadingNudge}
                 className="ml-auto text-dm-muted hover:text-dm-text transition-colors duration-150"
               >
