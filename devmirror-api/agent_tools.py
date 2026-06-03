@@ -289,7 +289,16 @@ def run_agent(
     scheduled_events: list[dict] = []
     is_schedule = False
 
-    response = chat.send_message(question)
+    try:
+        response = chat.send_message(question)
+    except Exception as e:
+        err = str(e)
+        if "429" in err or "quota" in err.lower() or "rate" in err.lower():
+            msg = "The AI coach is temporarily rate-limited. Please try again in a few minutes."
+        else:
+            msg = f"AI service error: {err[:200]}"
+        logger.error(f"[Agent] initial send_message failed: {err}")
+        return {"response": msg, "tool_calls": [], "is_schedule": False, "scheduled_events": []}
 
     for _ in range(max_turns):
         # Check if any part is a function call
@@ -331,9 +340,18 @@ def run_agent(
                 )
             )
 
-        response = chat.send_message(
-            genai.protos.Content(role="user", parts=function_responses)
-        )
+        try:
+            response = chat.send_message(
+                genai.protos.Content(role="user", parts=function_responses)
+            )
+        except Exception as e:
+            err = str(e)
+            if "429" in err or "quota" in err.lower() or "rate" in err.lower():
+                msg = "The AI coach is temporarily rate-limited. Please try again in a few minutes."
+            else:
+                msg = f"AI service error: {err[:200]}"
+            logger.error(f"[Agent] tool-response send_message failed: {err}")
+            return {"response": msg, "tool_calls": all_tool_calls, "is_schedule": False, "scheduled_events": []}
 
     # Extract final text
     final_text = ""
