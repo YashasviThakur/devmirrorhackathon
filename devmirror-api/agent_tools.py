@@ -1,7 +1,6 @@
 """
-DevMirror — Gemini 3 agentic loop with function calling.
-Replaces the simple call_ai() pattern with a multi-step agent that can
-autonomously call developer data tools before composing its final answer.
+DevMirror — Gemini agentic loop using REST API directly (no SDK).
+Uses requests.post() so the API key is always read fresh from env vars.
 """
 
 import json
@@ -10,12 +9,9 @@ import os
 from datetime import datetime
 from typing import Any, Optional
 
-import google.generativeai as genai
+import requests
 
 logger = logging.getLogger(__name__)
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 # ── Tool declarations ──────────────────────────────────────────────────────────
 
@@ -133,7 +129,7 @@ _TOOL_DECLARATIONS = [
 
 # ── System prompt ──────────────────────────────────────────────────────────────
 
-_SYSTEM_PROMPT = """You are DevMirror Coach — an elite AI agent for software engineers and CS students, powered by Google Cloud and Gemini 3.
+_SYSTEM_PROMPT = """You are DevMirror Coach — an elite AI agent for software engineers and CS students, powered by Google Cloud and Gemini.
 
 You have access to tools that fetch LIVE data from the user's developer accounts: GitHub, GitLab, LeetCode, Codeforces, Gmail, and Google Calendar.
 
@@ -152,11 +148,9 @@ Today is {today}. The user's goals are:
 """
 
 
-# ── Tool executor (injected from main.py at call time) ────────────────────────
+# ── Agent context ──────────────────────────────────────────────────────────────
 
 class AgentContext:
-    """Holds all the live data-fetching functions and user context needed during a run."""
-
     def __init__(
         self,
         user_id: int,
@@ -223,24 +217,18 @@ class AgentContext:
         return {"error": f"Unknown tool: {name}"}
 
 
-# ── Agentic loop ───────────────────────────────────────────────────────────────
+# ── REST-based agentic loop ────────────────────────────────────────────────────
 
 def run_agent(
     question: str,
     ctx: AgentContext,
     max_turns: int = 6,
 ) -> dict[str, Any]:
-    """
-    Run the Gemini 3 agent with tool use.
-    Returns:
-      {
-        "response":    str,          # final text answer
-        "tool_calls":  list[dict],   # all tool calls made (for reasoning panel)
-        "is_schedule": bool,
-        "scheduled_events": list,
-      }
-    """
-    if not GEMINI_API_KEY:
+    # Read key fresh on every call — avoids any SDK-level caching
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    model   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+    if not api_key:
         return {
             "response":         "Gemini API key not configured.",
             "tool_calls":       [],
@@ -248,7 +236,10 @@ def run_agent(
             "scheduled_events": [],
         }
 
-    genai.configure(api_key=GEMINI_API_KEY)
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{model}:generateContent?key={api_key}"
+    )
 
     system_prompt = _SYSTEM_PROMPT.format(
         today=datetime.utcnow().strftime("%Y-%m-%d"),
@@ -257,67 +248,63 @@ def run_agent(
         goal_3=ctx.goal_3 or "Not set",
     )
 
-    tools = genai.protos.Tool(
-        function_declarations=[
-            genai.protos.FunctionDeclaration(
-                name=t["name"],
-                description=t["description"],
-                parameters=genai.protos.Schema(
-                    type=genai.protos.Type.OBJECT,
-                    properties={
-                        k: genai.protos.Schema(
-                            type=_to_genai_type(v.get("type", "string")),
-                            description=v.get("description", ""),
-                        )
-                        for k, v in t["parameters"].get("properties", {}).items()
-                    },
-                    required=t["parameters"].get("required", []),
-                ),
-            )
-            for t in _TOOL_DECLARATIONS
-        ]
-    )
+    contents: list[dict] = [{"role": "user", "parts": [{"text": question}]}]
+    tools = [{"function_declarations": _TOOL_DECLARATIONS}]
 
-    model = genai.GenerativeModel(
-        model_name=GEMINI_MODEL,
-        tools=[tools],
-        system_instruction=system_prompt,
-    )
-
-    chat       = model.start_chat()
     all_tool_calls: list[dict] = []
     scheduled_events: list[dict] = []
     is_schedule = False
 
-    try:
-        response = chat.send_message(question)
-    except Exception as e:
-        err = str(e)
-        err_type = type(e).__name__
-        logger.error(f"[Agent] GEMINI FAILED type={err_type} err={err[:400]}")
-        if "429" in err or "quota" in err.lower() or "rate" in err.lower():
-            msg = "The AI coach is temporarily rate-limited. Please try again in a few minutes."
-        else:
-            msg = f"AI service error ({err_type}): {err[:150]}"
-        return {"response": msg, "tool_calls": [], "is_schedule": False, "scheduled_events": []}
+    for turn in range(max_turns):
+        payload = {
+            "system_instruction": {"parts": [{"text": system_prompt}]},
+            "contents":           contents,
+            "tools":              tools,
+            "generationConfig":   {"temperature": 0.7, "maxOutputTokens": 1024},
+        }
 
-    for _ in range(max_turns):
-        # Check if any part is a function call
-        fn_calls = [
-            part.function_call
-            for candidate in response.candidates
-            for part in candidate.content.parts
-            if part.function_call.name
-        ]
+        try:
+            resp = requests.post(url, json=payload, timeout=45)
+        except Exception as e:
+            logger.error(f"[Agent] network error: {e}")
+            return {"response": "Could not reach AI service. Check your connection.", "tool_calls": all_tool_calls, "is_schedule": False, "scheduled_events": []}
+
+        if resp.status_code == 429:
+            return {"response": "The AI coach is temporarily rate-limited. Please try again in a few minutes.", "tool_calls": all_tool_calls, "is_schedule": False, "scheduled_events": []}
+
+        if resp.status_code != 200:
+            err = resp.text[:300]
+            logger.error(f"[Agent] Gemini error {resp.status_code}: {err}")
+            return {"response": f"AI service error ({resp.status_code}): {err[:150]}", "tool_calls": all_tool_calls, "is_schedule": False, "scheduled_events": []}
+
+        data       = resp.json()
+        candidates = data.get("candidates", [])
+        if not candidates:
+            return {"response": "No response from AI.", "tool_calls": all_tool_calls, "is_schedule": is_schedule, "scheduled_events": scheduled_events}
+
+        parts = candidates[0].get("content", {}).get("parts", [])
+
+        # Add model turn to history
+        contents.append({"role": "model", "parts": parts})
+
+        # Check for function calls
+        fn_calls = [p["functionCall"] for p in parts if "functionCall" in p]
 
         if not fn_calls:
-            break
+            # Final text response
+            text = "".join(p.get("text", "") for p in parts).strip()
+            return {
+                "response":         text or "I couldn't generate a response. Please try again.",
+                "tool_calls":       all_tool_calls,
+                "is_schedule":      is_schedule,
+                "scheduled_events": scheduled_events,
+            }
 
-        # Execute all function calls and collect responses
-        function_responses = []
+        # Execute tools and collect responses
+        fn_response_parts = []
         for fn_call in fn_calls:
-            tool_name = fn_call.name
-            tool_args = dict(fn_call.args)
+            tool_name = fn_call.get("name", "")
+            tool_args = fn_call.get("args", {})
 
             logger.info(f"[Agent] calling tool: {tool_name}({list(tool_args.keys())})")
             all_tool_calls.append({"tool": tool_name, "args": list(tool_args.keys())})
@@ -332,37 +319,19 @@ def run_agent(
                     "end":     result.get("end_time", ""),
                 })
 
-            function_responses.append(
-                genai.protos.Part(
-                    function_response=genai.protos.FunctionResponse(
-                        name=tool_name,
-                        response={"result": _safe_json(result)},
-                    )
-                )
-            )
+            fn_response_parts.append({
+                "functionResponse": {
+                    "name":     tool_name,
+                    "response": {"result": _safe_json(result)},
+                }
+            })
 
-        try:
-            response = chat.send_message(
-                genai.protos.Content(role="user", parts=function_responses)
-            )
-        except Exception as e:
-            err = str(e)
-            if "429" in err or "quota" in err.lower() or "rate" in err.lower():
-                msg = "The AI coach is temporarily rate-limited. Please try again in a few minutes."
-            else:
-                msg = f"AI service error: {err[:200]}"
-            logger.error(f"[Agent] tool-response send_message failed: {err}")
-            return {"response": msg, "tool_calls": all_tool_calls, "is_schedule": False, "scheduled_events": []}
+        contents.append({"role": "user", "parts": fn_response_parts})
 
-    # Extract final text
-    final_text = ""
-    for candidate in response.candidates:
-        for part in candidate.content.parts:
-            if hasattr(part, "text") and part.text:
-                final_text += part.text
-
+    # Max turns hit — return whatever we have
+    text = "".join(p.get("text", "") for p in parts).strip()
     return {
-        "response":         final_text or "I couldn't generate a response. Please try again.",
+        "response":         text or "I've processed your request.",
         "tool_calls":       all_tool_calls,
         "is_schedule":      is_schedule,
         "scheduled_events": scheduled_events,
@@ -371,19 +340,7 @@ def run_agent(
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def _to_genai_type(t: str):
-    return {
-        "string":  genai.protos.Type.STRING,
-        "integer": genai.protos.Type.INTEGER,
-        "number":  genai.protos.Type.NUMBER,
-        "boolean": genai.protos.Type.BOOLEAN,
-        "array":   genai.protos.Type.ARRAY,
-        "object":  genai.protos.Type.OBJECT,
-    }.get(t, genai.protos.Type.STRING)
-
-
 def _safe_json(obj: Any) -> Any:
-    """Convert objects to JSON-safe types for the function response."""
     try:
         json.dumps(obj)
         return obj
