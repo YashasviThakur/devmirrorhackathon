@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Github, Code2, Trophy, Mail, Calendar, Youtube,
-  GitCommit, CheckCircle2, ArrowRight,
+  Github, Gitlab, Code2, Trophy, Mail, Calendar, Youtube,
+  GitCommit, CheckCircle2, ArrowRight, Database, Zap, Shield,
 } from 'lucide-react'
 
-// ?"??"? GitHub contribution grid ?"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"?
+// ── GitHub contribution grid ───────────────────────────────────────────────
 function MockGithubGrid() {
   const [cells, setCells] = useState<number[]>([])
   useEffect(() => {
@@ -13,7 +13,7 @@ function MockGithubGrid() {
       Math.random() < 0.4 ? 0 : Math.floor(Math.random() * 5),
     ))
   }, [])
-  const shades = ['bg-[#EDE9E1]', 'bg-[#C4BFAF]', 'bg-[#9A9280]', 'bg-[#5C5750]', 'bg-[#1A1A14]']
+  const shades = ['bg-[#D8D4CC]', 'bg-[#B4AFA4]', 'bg-[#8A8479]', 'bg-[#4A4540]', 'bg-[#1A1A14]']
   return (
     <div>
       <div className="flex gap-0.5 overflow-hidden">
@@ -33,7 +33,7 @@ function MockGithubGrid() {
   )
 }
 
-// ?"??"? LeetCode rings ?"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"?
+// ── LeetCode rings ────────────────────────────────────────────────────────
 function LeetCodeRing({ pct, color, label }: { pct: number; color: string; label: string }) {
   const r = 28, circ = 2 * Math.PI * r
   const [dash, setDash] = useState(0)
@@ -41,7 +41,7 @@ function LeetCodeRing({ pct, color, label }: { pct: number; color: string; label
   return (
     <div className="flex flex-col items-center gap-2">
       <svg width={70} height={70} className="-rotate-90">
-        <circle cx={35} cy={35} r={r} fill="none" stroke="#E2DFD7" strokeWidth={5} />
+        <circle cx={35} cy={35} r={r} fill="none" stroke="#C8C4BC" strokeWidth={5} />
         <circle cx={35} cy={35} r={r} fill="none" stroke={color} strokeWidth={5}
           strokeDasharray={circ} strokeDashoffset={circ - dash}
           strokeLinecap="butt" className="transition-all duration-1000 ease-out" />
@@ -51,7 +51,7 @@ function LeetCodeRing({ pct, color, label }: { pct: number; color: string; label
   )
 }
 
-// ?"??"? Gmail stream ?"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"?
+// ── Gmail stream ──────────────────────────────────────────────────────────
 const MOCK_EMAILS = [
   { from: 'recruiting@stripe.com',  subject: 'Summer 2026 Internship - Backend'  },
   { from: 'devrel@google.com',      subject: 'GSoC 2026 Applications Open'        },
@@ -68,7 +68,7 @@ function GmailStream() {
   return (
     <div className="space-y-1">
       {MOCK_EMAILS.slice(0, visible).map((e, i) => (
-        <div key={i} className="flex items-center gap-3 text-xs bg-white border border-dm-border px-3 py-2.5 animate-slide-up">
+        <div key={i} className="flex items-center gap-3 text-xs bg-[#EBE7DF] border border-dm-border px-3 py-2.5 animate-slide-up">
           <Mail size={11} className="text-dm-red shrink-0" />
           <span className="text-dm-muted truncate w-28 font-mono">{e.from}</span>
           <span className="text-dm-text truncate flex-1">{e.subject}</span>
@@ -78,14 +78,16 @@ function GmailStream() {
   )
 }
 
-// ?"??"? Terminal ?"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"?
+// ── Terminal ──────────────────────────────────────────────────────────────
 const TERMINAL_LINES = [
   '$ devmirror --fetch-all',
   '  -> GitHub     [########--]  3 commits',
+  '  -> GitLab     [########--]  8 MRs merged',
   '  -> LeetCode   [########--]  streak: 7d',
   '  -> Codeforces [######----]  rating: 1487',
   '  -> Gmail      [##########]  4 leads',
   '  -> Calendar   [########--]  2 sessions',
+  '  -> MongoDB    [##########]  synced',
   '',
   '  * Gemini coaching...',
   '',
@@ -117,7 +119,7 @@ function Terminal() {
         <span className="ml-3 text-xs text-white/40 font-mono">devmirror - live pipeline</span>
         <span className="ml-auto text-[10px] font-mono px-2 py-0.5 border border-dm-green/50 text-dm-green">live</span>
       </div>
-      <div className="p-5 min-h-[280px] font-mono text-sm space-y-0.5">
+      <div className="p-5 min-h-[300px] font-mono text-sm space-y-0.5">
         {lines.map((line, idx) => {
           const l = typeof line === 'string' ? line : ''
           return (
@@ -140,31 +142,35 @@ function Terminal() {
   )
 }
 
-// ?"??"? Data sources ticker ?"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"?
+// ── Data sources ticker ───────────────────────────────────────────────────
 const SOURCES = [
   { icon: Github,   name: 'GitHub'     },
+  { icon: Gitlab,   name: 'GitLab'     },
   { icon: Code2,    name: 'LeetCode'   },
   { icon: Trophy,   name: 'Codeforces' },
   { icon: Mail,     name: 'Gmail'      },
   { icon: Calendar, name: 'Calendar'   },
   { icon: Youtube,  name: 'YouTube'    },
+  { icon: Database, name: 'MongoDB'    },
 ]
 
 const FEATURES = [
-  { title: 'Daily AI Growth Report',   desc: 'Gemini analyses all your data and delivers a personalised coaching session every day.' },
-  { title: 'Closed-Loop Scheduling',   desc: 'Ask the coach to plan your week and it automatically creates Google Calendar events for you.' },
-  { title: 'Internship Radar',          desc: 'Gmail filter surfaces only internship, hackathon, and recruitment emails - zero noise.' },
-  { title: 'Multi-Tenant & Encrypted', desc: 'OAuth tokens are Fernet-encrypted at rest. Institution accounts keep team goals isolated.' },
+  { icon: Zap,      title: 'Daily AI Growth Report',   desc: 'Gemini analyses all your data sources and delivers a personalised coaching session every morning.' },
+  { icon: Calendar, title: 'Closed-Loop Scheduling',   desc: 'Ask the coach to plan your week and it automatically creates Google Calendar events for you.' },
+  { icon: Gitlab,   title: 'GitLab Integration',       desc: 'Private repo activity, merge requests, and commit velocity from GitLab alongside GitHub.' },
+  { icon: Database, title: 'MongoDB Persistence',      desc: 'User profiles and Fernet-encrypted OAuth tokens stored in MongoDB Atlas — multi-tenant safe from day one.' },
+  { icon: Mail,     title: 'Internship Radar',         desc: 'Smart Gmail filter surfaces only internship, hackathon, and recruitment emails — zero noise.' },
+  { icon: Shield,   title: 'Multi-Tenant & Encrypted', desc: 'OAuth tokens are Fernet-encrypted at rest. Institution accounts keep every student\'s goals isolated.' },
 ]
 
-// ?"??"? Main ?"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"??"?
+// ── Main ──────────────────────────────────────────────────────────────────
 export default function Landing() {
   const navigate = useNavigate()
 
   return (
     <div className="min-h-screen bg-white text-dm-text overflow-x-hidden">
 
-      {/* ?"??"? Nav ?"??"? */}
+      {/* Nav */}
       <nav className="fixed top-0 inset-x-0 z-50 bg-white border-b border-dm-border">
         <div className="max-w-[1400px] mx-auto px-8 h-16 flex items-center justify-between">
           <span className="font-black text-xl tracking-tighter">DevMirror</span>
@@ -185,42 +191,52 @@ export default function Landing() {
         </div>
       </nav>
 
-      {/* ?"??"? Hero - dark section ?"??"? */}
+      {/* Hero - dark section */}
       <section className="bg-[#1A1A14] pt-36 pb-28 px-8">
         <div className="max-w-[1400px] mx-auto">
           <p className="text-dm-dim text-[11px] font-mono uppercase tracking-widest mb-10">
-            Gemini · FastAPI · Multi-tenant · Fernet Encrypted
+            Gemini · FastAPI · MongoDB · React · Multi-tenant · Fernet Encrypted
           </p>
           <h1 className="text-display text-white mb-10 max-w-4xl">
             Built to track.<br />Built to grow.
           </h1>
           <div className="flex flex-col lg:flex-row gap-10 items-start">
             <p className="text-white/55 text-lg font-light leading-relaxed max-w-md">
-              DevMirror connects GitHub, LeetCode, Codeforces, Gmail, Calendar, and YouTube -
+              DevMirror connects GitHub, GitLab, LeetCode, Codeforces, Gmail, Calendar, and YouTube —
               then sends it all to Gemini to coach you, schedule your week, and surface real internship leads.
             </p>
-            <div className="flex gap-4 shrink-0">
-              <button
-                onClick={() => navigate('/login')}
-                className="border border-white text-white text-sm font-semibold px-8 py-4
-                           hover:bg-white hover:text-[#1A1A14] transition-colors"
-              >
-                Get Started Free
-              </button>
-              <a
-                href="https://github.com/YashasviThakur/DevMirror"
-                target="_blank" rel="noopener noreferrer"
-                className="border border-white/30 text-white/60 text-sm font-semibold px-8 py-4
-                           flex items-center gap-2 hover:border-white/60 transition-colors"
-              >
-                <Github size={15} /> Source
-              </a>
+            <div className="flex flex-col gap-4 shrink-0">
+              <div className="flex gap-4">
+                <button
+                  onClick={() => navigate('/login')}
+                  className="border border-white text-white text-sm font-semibold px-8 py-4
+                             hover:bg-white hover:text-[#1A1A14] transition-colors"
+                >
+                  Get Started Free
+                </button>
+                <a
+                  href="https://github.com/YashasviThakur/DevMirror"
+                  target="_blank" rel="noopener noreferrer"
+                  className="border border-white/30 text-white/60 text-sm font-semibold px-8 py-4
+                             flex items-center gap-2 hover:border-white/60 transition-colors"
+                >
+                  <Github size={15} /> Source
+                </a>
+              </div>
+              {/* Stats row */}
+              <div className="flex items-center gap-6 text-[11px] font-mono text-white/35 pt-2">
+                <span>8 data sources</span>
+                <span className="w-px h-3 bg-white/15" />
+                <span>Gemini 3 Agent</span>
+                <span className="w-px h-3 bg-white/15" />
+                <span>Free to use</span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ?"??"? Platforms ticker ?"??"? */}
+      {/* Platforms ticker */}
       <section id="platforms" className="border-b border-dm-border overflow-hidden">
         <div className="flex animate-ticker whitespace-nowrap select-none">
           {[...SOURCES, ...SOURCES, ...SOURCES, ...SOURCES].map((s, i) => (
@@ -234,7 +250,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ?"??"? Section 1 - GitHub - cream ?"??"? */}
+      {/* Section 1 - GitHub - cream */}
       <section className="bg-[#F5F0E8] py-28 px-8">
         <div className="max-w-[1400px] mx-auto grid lg:grid-cols-2 gap-20 items-center">
           <div>
@@ -244,40 +260,40 @@ export default function Landing() {
             </h2>
             <p className="text-dm-muted text-lg font-light leading-relaxed max-w-md">
               Your full contribution grid, weekly commit count, top repositories, and language
-              breakdown - pulled live from the GitHub API and reflected back in one view.
+              breakdown — pulled live from the GitHub API and reflected back in one view.
             </p>
             <div className="flex items-center gap-2 mt-6 text-sm font-medium">
               <CheckCircle2 size={15} className="text-dm-green" />
               <span className="text-dm-muted">Public repos · Commit events · Language stats</span>
             </div>
           </div>
-          <div className="bg-white border border-dm-border p-8">
+          <div className="bg-[#EBE7DF] border border-dm-border p-8">
             <div className="dm-label mb-6">Contribution Grid - Last 52 Weeks</div>
             <MockGithubGrid />
           </div>
         </div>
       </section>
 
-      {/* ?"??"? Section 2 - AI Coach - dark ?"??"? */}
+      {/* Section 2 - AI Coach - dark */}
       <section className="bg-[#1A1A14] py-28 px-8">
         <div className="max-w-[1400px] mx-auto grid lg:grid-cols-2 gap-20 items-center">
           <div className="order-2 lg:order-1">
             <Terminal />
           </div>
           <div className="order-1 lg:order-2">
-            <p className="dm-label text-dm-dim mb-6">Gemini</p>
+            <p className="dm-label text-dm-dim mb-6">Gemini · MongoDB</p>
             <h2 className="text-display-md text-white mb-8">
               AI that coaches,<br />not just reports.
             </h2>
             <p className="text-white/55 text-lg font-light leading-relaxed max-w-md">
               Ask the coach to plan your week and it creates Google Calendar events automatically.
-              Every day starts with a personalised session built from your real data.
+              Every day starts with a personalised session built from your real data — stored and synced via MongoDB.
             </p>
           </div>
         </div>
       </section>
 
-      {/* ?"??"? Section 3 - LeetCode + Gmail - white ?"??"? */}
+      {/* Section 3 - LeetCode + Gmail - white */}
       <section className="bg-white py-28 px-8">
         <div className="max-w-[1400px] mx-auto grid lg:grid-cols-2 gap-20 items-start">
           {/* LeetCode */}
@@ -287,7 +303,7 @@ export default function Landing() {
               Problems solved,<br />streaks alive.
             </h2>
             <p className="text-dm-muted text-lg font-light leading-relaxed mb-10">
-              Ring charts, streak counters, difficulty breakdowns, and Codeforces rating -
+              Ring charts, streak counters, difficulty breakdowns, and Codeforces rating —
               all in one DSA progress view.
             </p>
             <div className="bg-[#F5F0E8] border border-dm-border p-8">
@@ -310,7 +326,7 @@ export default function Landing() {
             </h2>
             <p className="text-dm-muted text-lg font-light leading-relaxed mb-10">
               Smart Gmail filter isolates internship, hackathon, and recruitment emails
-              from the noise - categorised and action-flagged automatically.
+              from the noise — categorised and action-flagged automatically.
             </p>
             <div className="bg-[#F5F0E8] border border-dm-border p-6">
               <div className="dm-label mb-4">Live opportunity stream</div>
@@ -320,8 +336,51 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ?"??"? Features grid - cream ?"??"? */}
-      <section id="features" className="bg-[#F5F0E8] py-28 px-8">
+      {/* Section 4 - GitLab - cream */}
+      <section className="bg-[#F5F0E8] py-28 px-8">
+        <div className="max-w-[1400px] mx-auto grid lg:grid-cols-2 gap-20 items-center">
+          <div>
+            <p className="dm-label mb-6">GitLab Integration</p>
+            <h2 className="text-display-md text-dm-text mb-8">
+              Private repos,<br />fully visible.
+            </h2>
+            <p className="text-dm-muted text-lg font-light leading-relaxed max-w-md">
+              GitLab merge requests, commit activity, and project stats — pulled alongside GitHub
+              so your full dev picture is captured, not just the public half.
+            </p>
+            <div className="flex flex-col gap-3 mt-8">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <CheckCircle2 size={15} className="text-dm-green" />
+                <span className="text-dm-muted">Merge requests · Commit velocity · Private repos</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <CheckCircle2 size={15} className="text-dm-green" />
+                <span className="text-dm-muted">PAT-authenticated · Works alongside GitHub</span>
+              </div>
+            </div>
+          </div>
+          {/* GitLab mock activity */}
+          <div className="bg-[#EBE7DF] border border-dm-border p-8 space-y-4">
+            <div className="dm-label mb-4">GitLab · Recent activity</div>
+            {[
+              { action: 'Merged MR',      detail: 'feat: add OAuth refresh logic',    time: '2h ago'  },
+              { action: 'Pushed commit',  detail: 'fix: handle 401 on token expiry',  time: '5h ago'  },
+              { action: 'Opened MR',      detail: 'chore: upgrade python deps',       time: '1d ago'  },
+              { action: 'Pushed commit',  detail: 'perf: batch MongoDB writes',       time: '2d ago'  },
+            ].map((row, i) => (
+              <div key={i} className="flex items-center gap-3 bg-[#F5F0E8] border border-dm-border px-4 py-3">
+                <Gitlab size={12} className="text-dm-muted shrink-0" />
+                <span className="text-xs font-mono text-dm-muted w-24 shrink-0">{row.action}</span>
+                <span className="text-xs text-dm-text flex-1 truncate">{row.detail}</span>
+                <span className="text-[11px] font-mono text-dm-dim shrink-0">{row.time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features grid - white bg, cream cards */}
+      <section id="features" className="bg-white py-28 px-8">
         <div className="max-w-[1400px] mx-auto">
           <div className="mb-16">
             <p className="dm-label mb-5">Platform Capabilities</p>
@@ -329,13 +388,13 @@ export default function Landing() {
               Hardworking tools<br />for serious devs.
             </h2>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 border border-dm-border">
-            {FEATURES.map(({ title, desc }, i) => (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-dm-border border border-dm-border">
+            {FEATURES.map(({ icon: Icon, title, desc }) => (
               <div
                 key={title}
-                className={`bg-white p-8 ${i < 3 ? 'border-r border-dm-border' : ''}`}
+                className="bg-[#F5F0E8] p-8 hover:bg-[#EBE7DF] transition-colors duration-150"
               >
-                <div className="w-2 h-2 bg-[#1A1A14] mb-6" />
+                <Icon size={18} className="text-dm-text mb-6" />
                 <h3 className="font-bold text-base leading-tight tracking-tight mb-3">{title}</h3>
                 <p className="text-sm text-dm-muted font-light leading-relaxed">{desc}</p>
               </div>
@@ -344,8 +403,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ?"??"? Account tiers - dark / white ?"??"? */}
-      <section id="accounts" className="bg-white py-28 px-8">
+      {/* Account tiers */}
+      <section id="accounts" className="bg-[#F5F0E8] py-28 px-8">
         <div className="max-w-[1400px] mx-auto">
           <div className="mb-16">
             <p className="dm-label mb-5">Account Types</p>
@@ -361,7 +420,7 @@ export default function Landing() {
                 Track your<br />individual growth.
               </h3>
               <p className="text-white/55 font-light leading-relaxed mb-10 flex-1">
-                Set 3 personal focus goals, connect all six data sources, and get a daily AI
+                Set 3 personal focus goals, connect all eight data sources, and get a daily AI
                 coaching session tailored to exactly where you are right now.
               </p>
               <button
@@ -373,8 +432,8 @@ export default function Landing() {
               </button>
             </div>
 
-            {/* Institutional - cream card */}
-            <div className="bg-[#F5F0E8] border border-dm-border p-10 flex flex-col">
+            {/* Institutional - white card */}
+            <div className="bg-white border border-dm-border p-10 flex flex-col">
               <p className="dm-label mb-6">Institutional</p>
               <h3 className="font-black text-3xl text-dm-text tracking-tight mb-5 leading-tight">
                 For colleges<br />and bootcamps.
@@ -395,7 +454,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ?"??"? CTA - orange ?"??"? */}
+      {/* CTA - orange */}
       <section className="bg-[#F04E00] py-28 px-8">
         <div className="max-w-[1400px] mx-auto grid lg:grid-cols-2 gap-20 items-center">
           <h2 className="text-display text-white">
@@ -403,30 +462,29 @@ export default function Landing() {
           </h2>
           <div>
             <p className="text-white/70 text-lg font-light leading-relaxed mb-10 max-w-md">
-              One click. Your entire developer journey - GitHub, LeetCode, Codeforces, Gmail,
-              Calendar, YouTube - reflected back with AI coaching.
+              One click. Your entire developer journey — GitHub, GitLab, LeetCode, Codeforces,
+              Gmail, Calendar, YouTube — reflected back with Gemini AI coaching.
             </p>
             <button
               onClick={() => navigate('/login')}
               className="border border-white text-white text-sm font-semibold px-8 py-4
                          hover:bg-white hover:text-[#F04E00] transition-colors flex items-center gap-2"
             >
-              Get Started - it's free <ArrowRight size={14} />
+              Get Started — it's free <ArrowRight size={14} />
             </button>
           </div>
         </div>
       </section>
 
-      {/* ?"??"? Footer ?"??"? */}
+      {/* Footer */}
       <footer className="bg-[#1A1A14] border-t border-white/10 px-8 py-8">
         <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <span className="font-black text-white text-xl tracking-tighter">DevMirror</span>
           <span className="text-dm-dim text-xs font-mono">
-            Google Cloud Rapid Hackathon · 2026 · Powered by Gemini · FastAPI · React
+            Google Cloud Rapid Hackathon · 2026 · Gemini · FastAPI · React · MongoDB · Railway
           </span>
         </div>
       </footer>
     </div>
   )
 }
-
