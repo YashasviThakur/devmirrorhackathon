@@ -26,7 +26,7 @@ One dashboard for your GitHub, GitLab, LeetCode, Codeforces, Gmail, Calendar, an
 
 Most developers have 6 tabs open just to check their own progress — GitHub here, LeetCode there, emails buried somewhere else. DevMirror collapses all of that into one place, adds a Gemini-powered AI coach that knows your actual goals, and tells you what to focus on today.
 
-Built for the **Google Cloud Rapid Hackathon 2026**.
+Built for developers who are serious about their growth.
 
 ---
 
@@ -314,7 +314,7 @@ uvicorn main:app --host 0.0.0.0 --port $PORT
 
 <div align="center">
 
-Built by [Yashasvi Thakur](https://github.com/YashasviThakur) &nbsp;·&nbsp; Google Cloud Rapid Hackathon 2026
+Built by [Yashasvi Thakur](https://github.com/YashasviThakur)
 
 Powered by [Gemini](https://deepmind.google/technologies/gemini/) · [MongoDB Atlas](https://www.mongodb.com/atlas) · [FastAPI](https://fastapi.tiangolo.com) · [React](https://react.dev)
 
