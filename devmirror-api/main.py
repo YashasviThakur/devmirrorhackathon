@@ -1086,30 +1086,38 @@ def _call_cohere(system_prompt: str, user_message: str) -> tuple[str, bool]:
 
 
 def _call_gemini(system_prompt: str, user_message: str) -> tuple[str, bool]:
-    """Call Gemini via Vertex AI using service account credentials."""
-    try:
-        import vertexai
-        from vertexai.generative_models import GenerativeModel, GenerationConfig, Content, Part
+    """Call Gemini via Vertex AI using service account credentials. Retries on 503."""
+    import time
+    import vertexai
+    from vertexai.generative_models import GenerativeModel, GenerationConfig
 
-        vertexai.init(project=VERTEX_PROJECT, location=VERTEX_LOCATION)
-        model = GenerativeModel(
-            VERTEX_MODEL,
-            system_instruction=system_prompt,
-        )
-        response = model.generate_content(
-            user_message,
-            generation_config=GenerationConfig(
-                temperature=0.7,
-                max_output_tokens=1024,
-            ),
-        )
-        text = response.text.strip()
-        if text:
-            return text, True
-        return "No response from Gemini.", False
-    except Exception as e:
-        logger.error(f"Vertex AI Gemini error: {str(e)}")
-        return f"AI unavailable: {str(e)}", False
+    vertexai.init(project=VERTEX_PROJECT, location=VERTEX_LOCATION)
+    model = GenerativeModel(VERTEX_MODEL, system_instruction=system_prompt)
+
+    for attempt in range(3):
+        try:
+            response = model.generate_content(
+                user_message,
+                generation_config=GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=1024,
+                ),
+            )
+            text = response.text.strip()
+            if text:
+                return text, True
+            return "No response from Gemini.", False
+        except Exception as e:
+            err = str(e)
+            if "503" in err or "high demand" in err.lower() or "overloaded" in err.lower():
+                if attempt < 2:
+                    logger.warning(f"Vertex AI 503 — retrying in {2 ** attempt}s (attempt {attempt+1}/3)")
+                    time.sleep(2 ** attempt)
+                    continue
+                return "Gemini is temporarily overloaded. Please try again in a moment.", False
+            logger.error(f"Vertex AI Gemini error: {err}")
+            return f"AI unavailable: {err}", False
+    return "Gemini is temporarily overloaded. Please try again in a moment.", False
 
 
 def call_ai(system_prompt: str, user_message: str) -> tuple[str, bool]:
