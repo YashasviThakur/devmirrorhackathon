@@ -87,7 +87,7 @@ export default function DSAProgress() {
   const cfBarData = d.codeforces.recent.map(r => ({
     name: r.problem.slice(0, 10),
     rating: r.rating,
-    color: r.verdict === 'AC' ? '#10B981' : '#EF4444',
+    color: (r.verdict === 'AC' || r.verdict === 'OK') ? '#10B981' : '#EF4444',
   }))
 
   return (
@@ -203,7 +203,7 @@ export default function DSAProgress() {
                   {d.codeforces.recent.map((s, i) => (
                     <div key={i} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {s.verdict === 'AC'
+                        {(s.verdict === 'AC' || s.verdict === 'OK')
                           ? <CheckCircle size={12} className="text-dm-green shrink-0" />
                           : <XCircle    size={12} className="text-red-400 shrink-0" />
                         }
