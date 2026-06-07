@@ -29,6 +29,18 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 logger = logging.getLogger(__name__)
 
+# ── Vertex AI credentials from env var (for Railway deployment) ───────────────
+_gac_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+if _gac_json:
+    try:
+        _creds_path = os.path.join(os.path.dirname(__file__), "gac.json")
+        with open(_creds_path, "w") as _f:
+            _f.write(_gac_json)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = _creds_path
+        logger.info("✅ Vertex AI credentials loaded from env var")
+    except Exception as _e:
+        logger.error(f"❌ Failed to write Vertex AI credentials: {_e}")
+
 from models import User, LinkedAccount, get_db, init_db
 from auth_router import router as auth_router, refresh_google_token_if_needed
 import coral_client
@@ -977,12 +989,11 @@ def _fetch_youtube_liked(access_token: str) -> dict[str, Any]:
     }
 
 
-# ── Gemini AI pipeline ─────────────────────────────────────────────────────────
+# ── Gemini AI pipeline (Vertex AI) ────────────────────────────────────────────
 
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash:generateContent?key={key}"
-)
+VERTEX_PROJECT   = os.getenv("VERTEX_PROJECT", "gen-lang-client-0893010417")
+VERTEX_LOCATION  = os.getenv("VERTEX_LOCATION", "us-central1")
+VERTEX_MODEL     = os.getenv("VERTEX_MODEL", "gemini-2.5-flash")
 
 _CALENDAR_SCHEDULE_TRIGGERS = [
     "schedule", "plan my", "what should i", "focus today", "focus this week",
@@ -1075,29 +1086,30 @@ def _call_cohere(system_prompt: str, user_message: str) -> tuple[str, bool]:
 
 
 def _call_gemini(system_prompt: str, user_message: str) -> tuple[str, bool]:
-    """Call Gemini and return (text, is_success). is_success indicates whether to use the text."""
-    if not GEMINI_API_KEY:
-        return "Gemini API key not configured. Set GEMINI_API_KEY in your .env file.", False
-
-    url     = GEMINI_URL.format(key=GEMINI_API_KEY)
-    payload = {
-        "contents":          [{"role": "user", "parts": [{"text": user_message}]}],
-        "systemInstruction": {"parts": [{"text": system_prompt}]},
-        "generationConfig":  {"temperature": 0.7, "maxOutputTokens": 1024},
-    }
+    """Call Gemini via Vertex AI using service account credentials."""
     try:
-        resp = requests.post(url, json=payload, timeout=30)
-        if resp.status_code == 429:
-            return "AI is temporarily rate-limited. Please wait a moment and try again.", False
-        if resp.status_code != 200:
-            return f"AI unavailable (status {resp.status_code}). Please try again shortly.", False
-        candidates = resp.json().get("candidates", [])
-        if candidates:
-            text = candidates[0]["content"]["parts"][0]["text"]
+        import vertexai
+        from vertexai.generative_models import GenerativeModel, GenerationConfig, Content, Part
+
+        vertexai.init(project=VERTEX_PROJECT, location=VERTEX_LOCATION)
+        model = GenerativeModel(
+            VERTEX_MODEL,
+            system_instruction=system_prompt,
+        )
+        response = model.generate_content(
+            user_message,
+            generation_config=GenerationConfig(
+                temperature=0.7,
+                max_output_tokens=1024,
+            ),
+        )
+        text = response.text.strip()
+        if text:
             return text, True
         return "No response from Gemini.", False
-    except Exception:
-        return "Could not reach the AI service. Check your internet connection and try again.", False
+    except Exception as e:
+        logger.error(f"Vertex AI Gemini error: {str(e)}")
+        return f"AI unavailable: {str(e)}", False
 
 
 def call_ai(system_prompt: str, user_message: str) -> tuple[str, bool]:

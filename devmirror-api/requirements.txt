@@ -10,3 +10,4 @@ cryptography>=42.0.0
 google-auth-oauthlib>=1.2.0
 google-generativeai>=0.8.0
 pymongo>=4.8.0
+google-cloud-aiplatform>=1.49.0
