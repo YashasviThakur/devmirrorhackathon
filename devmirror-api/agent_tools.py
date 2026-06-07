@@ -224,21 +224,32 @@ def run_agent(
     ctx: AgentContext,
     max_turns: int = 6,
 ) -> dict[str, Any]:
-    # Read key fresh on every call — avoids any SDK-level caching
-    api_key = os.getenv("GEMINI_API_KEY", "")
-    model   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    # Use Vertex AI with service account credentials
+    import google.auth
+    import google.auth.transport.requests
 
-    if not api_key:
+    model   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    project = os.getenv("VERTEX_PROJECT", "gen-lang-client-0893010417")
+    location = os.getenv("VERTEX_LOCATION", "us-central1")
+
+    try:
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        credentials.refresh(google.auth.transport.requests.Request())
+        token = credentials.token
+    except Exception as e:
+        logger.error(f"[Agent] Failed to get Vertex AI credentials: {e}")
         return {
-            "response":         "Gemini API key not configured.",
+            "response":         "AI credentials not configured. Check GOOGLE_APPLICATION_CREDENTIALS_JSON.",
             "tool_calls":       [],
             "is_schedule":      False,
             "scheduled_events": [],
         }
 
     url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{model}:generateContent?key={api_key}"
+        f"https://{location}-aiplatform.googleapis.com/v1/projects/{project}/"
+        f"locations/{location}/publishers/google/models/{model}:generateContent"
     )
 
     system_prompt = _SYSTEM_PROMPT.format(
@@ -264,7 +275,7 @@ def run_agent(
         }
 
         try:
-            resp = requests.post(url, json=payload, timeout=45)
+            resp = requests.post(url, json=payload, timeout=45, headers={"Authorization": f"Bearer {token}"})
         except Exception as e:
             logger.error(f"[Agent] network error: {e}")
             return {"response": "Could not reach AI service. Check your connection.", "tool_calls": all_tool_calls, "is_schedule": False, "scheduled_events": []}
