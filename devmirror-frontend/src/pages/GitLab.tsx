@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { GitBranch, GitMerge, Star, ExternalLink, RefreshCw, Settings2, ChevronRight, LogIn } from 'lucide-react'
+import { GitBranch, GitMerge, Star, ExternalLink, RefreshCw, Settings2, ChevronRight, LogIn, Brain, AlertCircle, Loader } from 'lucide-react'
 import clsx from 'clsx'
 import PageShell from '../components/PageShell'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -19,6 +19,10 @@ export default function GitLab() {
   const [glUsername,  setGlUsername]  = useState('')
   const [glToken,     setGlToken]     = useState('')
   const [saving,      setSaving]      = useState(false)
+  const [coachResult, setCoachResult] = useState<any>(null)
+  const [coachLoading,setCoachLoading]= useState(false)
+  const [projectId,   setProjectId]   = useState('')
+  const [mrIid,       setMrIid]       = useState('')
 
   async function load(uid: number) {
     setLoading(true)
@@ -62,6 +66,28 @@ export default function GitLab() {
     setRefreshing(true)
     await load(userId)
     setRefreshing(false)
+  }
+
+  async function handleAnalyzeMR() {
+    if (!userId || !projectId.trim() || !mrIid.trim()) {
+      setError('Please provide project ID and MR IID')
+      return
+    }
+    setCoachLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/coach/analyze-mr?user_id=${userId}&project_id=${projectId}&mr_iid=${mrIid}`, {
+        method: 'POST'
+      })
+      if (!res.ok) throw new Error('Failed to analyze MR')
+      const result = await res.json()
+      setCoachResult({ type: 'mr', data: result })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(`Coach analysis failed: ${msg}`)
+    } finally {
+      setCoachLoading(false)
+    }
   }
 
   if (!userId) {
@@ -228,6 +254,51 @@ export default function GitLab() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Code Coach Section */}
+          <div className="dm-card p-6 border-dm-purple/25 bg-dm-purple-dim/30">
+            <div className="flex items-center gap-2 mb-4">
+              <Brain size={18} className="text-dm-purple-ll" />
+              <h3 className="font-semibold text-dm-text">AI Code Coach</h3>
+              <span className="text-xs text-dm-muted">Powered by GitLab Orbit + Gemini</span>
+            </div>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  placeholder="Project ID"
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  className="dm-input text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="MR IID"
+                  value={mrIid}
+                  onChange={(e) => setMrIid(e.target.value)}
+                  className="dm-input text-sm"
+                />
+              </div>
+              <button
+                onClick={handleAnalyzeMR}
+                disabled={coachLoading || !projectId.trim() || !mrIid.trim()}
+                className="dm-btn-primary w-full text-sm flex items-center justify-center gap-2"
+              >
+                {coachLoading ? <Loader size={14} className="animate-spin" /> : <Brain size={14} />}
+                {coachLoading ? 'Analyzing...' : 'Analyze Merge Request'}
+              </button>
+            </div>
+
+            {coachResult?.data?.success && (
+              <div className="mt-4 p-4 bg-dm-bg rounded-lg border border-dm-border">
+                <div className="text-xs text-dm-muted mb-2">MR: {coachResult.data.mr_title}</div>
+                <div className="prose prose-sm text-dm-text whitespace-pre-wrap text-xs leading-relaxed">
+                  {coachResult.data.ai_analysis}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Profile link */}
