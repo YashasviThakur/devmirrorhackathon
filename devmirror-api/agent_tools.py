@@ -74,6 +74,21 @@ _TOOL_DECLARATIONS = [
         },
     },
     {
+        "name": "fetch_gitlab_orbit",
+        "description": (
+            "Fetch GitLab Orbit context for a project: codebase structure, complexity metrics, "
+            "code quality indicators. Enables AI-powered code analysis and coaching."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "integer", "description": "GitLab project ID"},
+                "token":      {"type": "string", "description": "GitLab personal access token"},
+            },
+            "required": ["project_id", "token"],
+        },
+    },
+    {
         "name": "fetch_gmail_opportunities",
         "description": (
             "Fetch filtered Gmail emails about internships, hackathons, and scholarships "
@@ -161,6 +176,7 @@ class AgentContext:
         fetch_leetcode_fn,
         fetch_codeforces_fn,
         fetch_gitlab_fn,
+        fetch_orbit_fn,
         fetch_gmail_fn,
         fetch_calendar_fn,
         create_calendar_fn,
@@ -176,6 +192,7 @@ class AgentContext:
         self.fetch_leetcode   = fetch_leetcode_fn
         self.fetch_codeforces = fetch_codeforces_fn
         self.fetch_gitlab_raw = fetch_gitlab_fn
+        self.fetch_orbit      = fetch_orbit_fn
         self.fetch_gmail      = fetch_gmail_fn
         self.fetch_calendar   = fetch_calendar_fn
         self.create_calendar  = create_calendar_fn
@@ -194,6 +211,11 @@ class AgentContext:
             if name == "fetch_gitlab_stats":
                 return self.fetch_gitlab_raw(
                     args.get("username", self.gitlab_username),
+                    args.get("token", self.gitlab_token),
+                )
+            if name == "fetch_gitlab_orbit":
+                return self.fetch_orbit(
+                    args["project_id"],
                     args.get("token", self.gitlab_token),
                 )
             if name == "fetch_gmail_opportunities":

@@ -45,6 +45,7 @@ from models import User, LinkedAccount, get_db, init_db
 from auth_router import router as auth_router, refresh_google_token_if_needed
 import coral_client
 import gitlab_client
+import gitlab_orbit_client
 import mongodb_client
 from agent_tools import AgentContext, run_agent
 
@@ -1355,6 +1356,24 @@ async def data_gitlab(user_id: int = Query(...), db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.get("/api/data/gitlab/orbit")
+async def data_gitlab_orbit(
+    user_id: int = Query(...),
+    project_id: int = Query(...),
+    db: Session = Depends(get_db)
+):
+    """Fetch GitLab Orbit context for code analysis and AI coaching."""
+    user = _get_user_or_404(user_id, db)
+    linked = user.linked_accounts
+    gl_token = linked.gitlab_token if linked else None
+    if not gl_token:
+        raise HTTPException(status_code=400, detail="GitLab token required for Orbit context.")
+    try:
+        return await _run(gitlab_orbit_client.fetch_orbit_context, project_id, gl_token)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/api/data/calendar")
 async def data_calendar(user_id: int = Query(...), db: Session = Depends(get_db)):
     token  = _get_valid_google_token(user_id, db)
@@ -1499,6 +1518,12 @@ async def ask_agent(body: AskRequest, db: Session = Depends(get_db)):
             return {}
         return _create_calendar_event(g_token, event)
 
+    def _fetch_orbit_for_agent(project_id: int, token: str = ""):
+        token = token or gl_token or ""
+        if not token:
+            return {"available": False, "detail": "GitLab token required"}
+        return gitlab_orbit_client.fetch_orbit_context(project_id, token)
+
     ctx = AgentContext(
         user_id          = body.user_id,
         goal_1           = user.goal_1 or "Not set",
@@ -1508,6 +1533,7 @@ async def ask_agent(body: AskRequest, db: Session = Depends(get_db)):
         fetch_leetcode_fn= _fetch_leetcode,
         fetch_codeforces_fn = _fetch_codeforces,
         fetch_gitlab_fn  = gitlab_client.fetch_gitlab,
+        fetch_orbit_fn   = _fetch_orbit_for_agent,
         fetch_gmail_fn   = _gmail_for_agent,
         fetch_calendar_fn= _calendar_for_agent,
         create_calendar_fn = _create_cal_for_agent,
