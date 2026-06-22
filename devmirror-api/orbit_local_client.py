@@ -182,6 +182,56 @@ def importers_of(file_path: str, pid: Optional[int] = None, limit: int = 25) -> 
     return [r["file_path"] for r in rows]
 
 
+def _hot_defs_in_file(file_path: str, pid: Optional[int] = None, limit: int = 3) -> list[dict]:
+    """Most-called definitions inside a specific file (local fan-in)."""
+    safe = file_path.replace("'", "''")
+    scope = _scope(pid, alias="d")
+    scope = f"AND {scope} " if scope else ""
+    return sql(
+        "SELECT d.name, COUNT(*) AS callers "
+        "FROM gl_edge e JOIN gl_definition d ON e.target_id = d.id "
+        "WHERE e.relationship_kind = 'CALLS' AND e.target_kind = 'Definition' "
+        f"AND d.file_path = '{safe}' {scope}"
+        f"GROUP BY 1 ORDER BY 2 DESC LIMIT {int(limit)}"
+    )
+
+
+def _def_count(file_path: str, pid: Optional[int] = None) -> int:
+    safe = file_path.replace("'", "''")
+    where = f"AND project_id = {int(pid)}" if pid is not None else ""
+    rows = sql(f"SELECT COUNT(*) AS n FROM gl_definition WHERE file_path = '{safe}' {where}")
+    return int(rows[0]["n"]) if rows else 0
+
+
+def impact_of_changed_files(paths: list[str], pid: Optional[int] = None) -> list[dict]:
+    """
+    For each changed file, compute its blast radius from the Orbit graph:
+    how many files import it, the most-called functions it defines, and a
+    derived risk level. This is what makes MR review architecture-aware.
+    """
+    results: list[dict] = []
+    for path in paths:
+        importers = importers_of(path, pid=pid, limit=50)
+        hot = _hot_defs_in_file(path, pid=pid, limit=3)
+        max_callers = max((int(d.get("callers", 0)) for d in hot), default=0)
+        n_importers = len(importers)
+        # Simple, explainable risk score from real graph fan-in.
+        score = n_importers + max_callers
+        risk = "HIGH" if score >= 12 else "MEDIUM" if score >= 5 else "LOW"
+        results.append({
+            "file": path,
+            "risk": risk,
+            "importer_count": n_importers,
+            "importers": importers[:10],
+            "hot_definitions": hot,
+            "definitions": _def_count(path, pid=pid),
+        })
+    # Riskiest first.
+    order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+    results.sort(key=lambda r: (order[r["risk"]], -r["importer_count"]))
+    return results
+
+
 def graph_stats(pid: Optional[int] = None) -> dict[str, int]:
     out: dict[str, int] = {}
     for table in ("gl_file", "gl_definition", "gl_imported_symbol", "gl_edge"):

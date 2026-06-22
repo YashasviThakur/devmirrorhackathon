@@ -1,0 +1,27 @@
+# GitLab Orbit Code Coach — automated MR review.
+#
+# On every merge request, this job indexes the repo with GitLab Orbit, computes
+# the blast radius of the changed files from the knowledge graph, and posts the
+# report as an MR comment.
+#
+# Setup: add a CI/CD variable GITLAB_TOKEN = a project/group access token with
+# `api` scope (Settings → CI/CD → Variables). CI_JOB_TOKEN cannot post MR notes.
+
+stages:
+  - review
+
+orbit_code_coach:
+  stage: review
+  image: python:3.11-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  variables:
+    GIT_DEPTH: "100"
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends curl git ca-certificates
+    - curl -fsSL "https://gitlab.com/gitlab-org/orbit/knowledge-graph/-/raw/main/install.sh" | bash
+    - export PATH="$HOME/.local/bin:$HOME/.orbit/bin:/usr/local/bin:$PATH"
+    - orbit version || true
+  script:
+    - python ci/orbit_mr_review.py
+  allow_failure: true   # never block a merge on the coach

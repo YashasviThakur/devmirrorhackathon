@@ -21,6 +21,8 @@ from urllib.parse import quote
 
 import requests
 
+import orbit_local_client as orbit
+
 logger = logging.getLogger(__name__)
 
 GITLAB_API = "https://gitlab.com/api/v4"
@@ -172,6 +174,22 @@ def _orbit_block(orbit_context: Optional[dict]) -> str:
     return "\n".join(lines)
 
 
+def _impact_block(impacts: list[dict]) -> str:
+    """Render the Orbit blast radius of the files changed in this MR."""
+    if not impacts:
+        return ""
+    lines = ["", "Orbit blast radius of the CHANGED files (review high-risk ones hardest):"]
+    for it in impacts:
+        defs = ", ".join(
+            f"{d['name']}({d['callers']} callers)" for d in it.get("hot_definitions", [])
+        )
+        lines.append(
+            f"  - [{it['risk']}] {it['file']} — imported by {it['importer_count']} files"
+            + (f"; hot fns: {defs}" if defs else "")
+        )
+    return "\n".join(lines)
+
+
 # ── Capabilities ─────────────────────────────────────────────────────────────
 
 def analyze_merge_request(
@@ -194,12 +212,26 @@ def analyze_merge_request(
     if not diff_text:
         return {"success": False, "error": "No diff content available for this MR"}
 
+    # Orbit blast radius of the *changed* files — the architecture-aware part.
+    changed_paths = [
+        (ch.get("new_path") or ch.get("old_path"))
+        for ch in data["changes"]
+        if (ch.get("new_path") or ch.get("old_path"))
+    ]
+    impacts: list[dict] = []
+    if orbit.is_available() and changed_paths:
+        try:
+            impacts = orbit.impact_of_changed_files(changed_paths)
+        except Exception as e:
+            logger.warning(f"Orbit impact failed: {e}")
+
     prompt = f"""You are an expert code reviewer. Review the ACTUAL diff below.
 
 Merge Request: {mr.get('title', '')}
 Author: {mr.get('author', {}).get('name', '')}
 Description: {(mr.get('description') or '')[:600]}
 {_orbit_block(orbit_context)}
+{_impact_block(impacts)}
 
 === DIFF ({files_shown} file(s)) ===
 {diff_text}
@@ -208,10 +240,11 @@ Description: {(mr.get('description') or '')[:600]}
 Base your review ONLY on the code shown. Provide:
 1. Code Quality Score (1-10) with one-line justification
 2. Specific issues — cite the file and what's wrong (bugs, edge cases, naming, duplication)
-3. Risk factors for merging
+3. Risk factors — WEIGHT these by the Orbit blast radius above (a HIGH-risk changed
+   file with many importers/callers deserves the most scrutiny and tests)
 4. One concrete next action
 
-Be specific and reference real lines/identifiers from the diff. Under 320 words."""
+Be specific and reference real identifiers from the diff. Under 340 words."""
 
     analysis = _gemini(prompt, gemini_key)
     if analysis is None:
@@ -227,7 +260,8 @@ Be specific and reference real lines/identifiers from the diff. Under 320 words.
             "files_changed": len(data["changes"]),
             "files_analyzed": files_shown,
         },
-        "orbit_powered": bool(orbit_context and orbit_context.get("available")),
+        "orbit_powered": bool(impacts) or bool(orbit_context and orbit_context.get("available")),
+        "changed_file_impact": impacts,
         "ai_analysis": analysis,
         "mr_url": mr.get("web_url", ""),
     }
