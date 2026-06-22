@@ -1375,7 +1375,7 @@ async def data_gitlab(user_id: int = Query(...), db: Session = Depends(get_db)):
 @app.get("/api/data/gitlab/orbit")
 async def data_gitlab_orbit(
     user_id: int = Query(...),
-    project_id: int = Query(...),
+    project_id: int = Query(0),
     db: Session = Depends(get_db)
 ):
     """Fetch GitLab Orbit knowledge-graph context for code analysis and AI coaching."""

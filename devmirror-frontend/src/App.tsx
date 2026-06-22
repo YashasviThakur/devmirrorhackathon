@@ -13,6 +13,7 @@ import LearnVsBuild from './pages/LearnVsBuild'
 import Internship   from './pages/Internship'
 import Calendar     from './pages/Calendar'
 import GitLabPage   from './pages/GitLab'
+import OrbitInsights from './pages/OrbitInsights'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null }
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/youtube"     element={<YouTube />} />
           <Route path="/calendar"    element={<Calendar />} />
           <Route path="/gitlab"      element={<GitLabPage />} />
+          <Route path="/orbit"       element={<OrbitInsights />} />
           <Route path="/coach"       element={<Coach />} />
 
           {/* Legacy analytics pages */}

@@ -232,6 +232,24 @@ export interface InternshipData {
   emails:  GmailEmail[]
 }
 
+// GitLab Orbit knowledge-graph context (see /api/data/gitlab/orbit)
+export interface OrbitContext {
+  available:       boolean
+  detail?:         string
+  summary?:        string
+  stats?:          { gl_file: number; gl_definition: number; gl_imported_symbol: number; gl_edge: number }
+  hotspots?:       string[]
+  blast_radius?:   string[]
+  dependencies?:   string[]
+  long_functions?: string[]
+  raw?: {
+    hotspots?:       { file_path: string; definitions: number }[]
+    blast_radius?:   { file_path: string; name: string; callers: number }[]
+    coupling?:       { import_path: string; importers: number }[]
+    long_functions?: { file_path: string; name: string; span: number }[]
+  }
+}
+
 // -- API surface ----------------------------------------------------------------
 
 export const api = {
@@ -253,6 +271,7 @@ export const api = {
   // Data sources
   github:     (userId: number) => request<GitHubData>(`/api/data/github?user_id=${userId}`),
   gitlab:     (userId: number) => request<GitLabData>(`/api/data/gitlab?user_id=${userId}`),
+  orbit:      (userId: number) => request<OrbitContext>(`/api/data/gitlab/orbit?user_id=${userId}`),
   leetcode:   (userId: number) => request<LeetCodeData>(`/api/data/leetcode?user_id=${userId}`),
   codeforces: (userId: number) => request<CodeForcesData>(`/api/data/codeforces?user_id=${userId}`),
   gmail:      (userId: number) => request<GmailData>(`/api/data/gmail?user_id=${userId}`),
