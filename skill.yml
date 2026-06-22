@@ -1,0 +1,89 @@
+name: DevMirror Code Coach
+description: >-
+  Architecture-aware code coaching powered by the GitLab Orbit knowledge graph.
+  Indexes a repository with Orbit, queries the graph for complexity hotspots,
+  blast radius, and coupling, then produces prioritized, grounded guidance.
+version: 2.0.0
+author: Yashasvi Thakur
+repository: https://github.com/YashasviThakur/devmirrorhackathon
+license: MIT
+
+# This skill uses GitLab Orbit (the Knowledge Graph) for real — not generic LLM
+# guesses. It runs `orbit index` + `orbit sql` over the local DuckDB graph.
+runtime:
+  entrypoint: devmirror-api/orbit_coach.py
+  command: "python devmirror-api/orbit_coach.py <repo_path> [--top N] [--json]"
+  language: python-3.10+
+  requires:
+    orbit_cli: "GitLab Orbit local CLI (https://docs.gitlab.com/orbit/)"
+    gemini_api_key: "Google Gemini API key (optional; Orbit analysis runs without it)"
+
+orbit:
+  enabled: true
+  mode: local            # `orbit index` + `orbit sql` over ~/.orbit/graph.duckdb
+  tables_used:
+    - gl_definition      # complexity hotspots, longest functions
+    - gl_imported_symbol # module coupling / dependency blast radius
+    - gl_edge            # call-graph fan-in (function-level blast radius)
+    - gl_file
+  signals:
+    - name: complexity_hotspots
+      query: "SELECT file_path, COUNT(*) FROM gl_definition GROUP BY 1 ORDER BY 2 DESC"
+    - name: blast_radius
+      query: >-
+        SELECT d.file_path, d.name, COUNT(*) AS callers
+        FROM gl_edge e JOIN gl_definition d ON e.target_id = d.id
+        WHERE e.relationship_kind = 'CALLS' AND e.target_kind = 'Definition'
+        GROUP BY 1, 2 ORDER BY 3 DESC
+    - name: module_coupling
+      query: >-
+        SELECT import_path, COUNT(DISTINCT file_path) AS importers
+        FROM gl_imported_symbol WHERE import_path LIKE '.%' GROUP BY 1 ORDER BY 2 DESC
+    - name: longest_functions
+      query: >-
+        SELECT file_path, name, (end_line - start_line) AS span
+        FROM gl_definition WHERE definition_type IN ('Function','AsyncFunction',
+        'DecoratedFunction','DecoratedAsyncFunction','Method') ORDER BY span DESC
+
+capabilities:
+  - name: analyze-codebase
+    description: "Index a repo with Orbit and return a prioritized coaching report."
+    runner: "python devmirror-api/orbit_coach.py <repo_path>"
+    returns: { hotspots, blast_radius, dependencies, long_functions, ai_analysis }
+
+  - name: analyze-mr
+    description: "Review a merge request's real diff, grounded in Orbit graph context."
+    endpoint: /api/coach/analyze-mr
+    method: POST
+    parameters:
+      - { name: user_id,    type: integer, required: true }
+      - { name: project_id, type: integer, required: true }
+      - { name: mr_iid,     type: integer, required: true }
+
+  - name: find-debt
+    description: "Scan real source files for technical debt, prioritized by Orbit hotspots."
+    endpoint: /api/coach/find-debt
+    method: POST
+    parameters:
+      - { name: user_id,    type: integer, required: true }
+      - { name: project_id, type: integer, required: true }
+
+integration:
+  platform: GitLab Duo Agent Platform
+  agent_tool: fetch_gitlab_orbit   # exposed to the DevMirror Gemini agent
+  mcp_compatible: true             # Orbit also serves the graph via `orbit mcp`
+
+tags:
+  - gitlab-orbit
+  - knowledge-graph
+  - code-review
+  - technical-debt
+  - blast-radius
+  - ai-coaching
+
+documentation:
+  - { title: "Hackathon write-up", url: "GITLAB_TRANSCEND.md" }
+  - { title: "Quick start",        url: "QUICKSTART.md" }
+
+pricing_model: free
+support_contact: yashasvithakur2005@gmail.com

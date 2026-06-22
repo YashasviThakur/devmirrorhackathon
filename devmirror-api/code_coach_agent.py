@@ -1,201 +1,301 @@
 """
-DevMirror Code Coach Agent — AI-powered code analysis and improvement suggestions.
-Uses GitLab Orbit context to analyze code quality, complexity, and best practices.
-Integrated with Gemini for intelligent coaching and recommendations.
+DevMirror Code Coach Agent — AI-powered code analysis grounded in REAL code.
+
+Two capabilities:
+  • analyze_merge_request — fetches the actual MR diff (not just metadata) and
+    reviews the real changed code with Gemini.
+  • find_technical_debt   — fetches real source files from the repository and
+    analyses them for genuine debt signals, instead of guessing from commit counts.
+
+Both accept an optional ``orbit_context`` dict produced by ``orbit_local_client``
+(GitLab Orbit / Knowledge Graph). When present, the structural graph context
+(definitions, cross-file references, blast radius, hotspots) is fed to the model
+so the review is architecture-aware — the core promise of the hackathon.
+
+GitLab REST API v4 reference: https://docs.gitlab.com/api/merge_requests/
 """
 
 import logging
-import json
 from typing import Any, Optional
+from urllib.parse import quote
+
 import requests
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = ""  # Set from env in main.py
+GITLAB_API = "https://gitlab.com/api/v4"
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    "gemini-2.5-flash:generateContent"
+)
 
+# Keep prompts within sane token budgets.
+_MAX_DIFF_FILES = 12
+_MAX_DIFF_CHARS = 12_000
+_MAX_DEBT_FILES = 6
+_MAX_FILE_CHARS = 4_000
+_SOURCE_EXTS = (
+    ".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java", ".rb",
+    ".kt", ".c", ".cpp", ".h", ".cs", ".php", ".swift", ".scala",
+)
+
+
+# ── GitLab helpers ───────────────────────────────────────────────────────────
+
+def _headers(token: str) -> dict:
+    return {"PRIVATE-TOKEN": token}
+
+
+def _get(path: str, token: str, **params) -> Optional[requests.Response]:
+    try:
+        resp = requests.get(
+            f"{GITLAB_API}{path}", headers=_headers(token), params=params, timeout=15
+        )
+        return resp
+    except Exception as e:
+        logger.error(f"GitLab GET {path} failed: {e}")
+        return None
+
+
+def _default_branch(project_id: int, token: str) -> str:
+    resp = _get(f"/projects/{project_id}", token)
+    if resp is not None and resp.status_code == 200:
+        return resp.json().get("default_branch") or "main"
+    return "main"
+
+
+def _fetch_mr_diff(project_id: int, mr_iid: int, token: str) -> Optional[dict]:
+    """Return MR metadata + the real per-file diffs."""
+    base = _get(f"/projects/{project_id}/merge_requests/{mr_iid}", token)
+    if base is None or base.status_code != 200:
+        return None
+    mr = base.json()
+
+    # /changes carries the actual diff hunks. Fall back to /diffs (newer API).
+    changes_resp = _get(f"/projects/{project_id}/merge_requests/{mr_iid}/changes", token)
+    changes: list[dict] = []
+    if changes_resp is not None and changes_resp.status_code == 200:
+        changes = changes_resp.json().get("changes", []) or []
+    else:
+        diffs_resp = _get(f"/projects/{project_id}/merge_requests/{mr_iid}/diffs", token)
+        if diffs_resp is not None and diffs_resp.status_code == 200:
+            changes = diffs_resp.json() or []
+
+    return {"mr": mr, "changes": changes}
+
+
+def _render_diff(changes: list[dict]) -> tuple[str, int]:
+    """Render changed files into a capped textual diff for the model."""
+    chunks: list[str] = []
+    used = 0
+    shown = 0
+    for ch in changes[:_MAX_DIFF_FILES]:
+        path = ch.get("new_path") or ch.get("old_path") or "unknown"
+        diff = ch.get("diff", "") or ""
+        if not diff:
+            continue
+        remaining = _MAX_DIFF_CHARS - used
+        if remaining <= 0:
+            break
+        snippet = diff[:remaining]
+        chunks.append(f"--- {path}\n{snippet}")
+        used += len(snippet)
+        shown += 1
+    return "\n\n".join(chunks), shown
+
+
+def _list_source_files(project_id: int, token: str, branch: str) -> list[str]:
+    resp = _get(
+        f"/projects/{project_id}/repository/tree",
+        token, ref=branch, recursive=True, per_page=100,
+    )
+    if resp is None or resp.status_code != 200:
+        return []
+    files = [
+        item.get("path", "")
+        for item in resp.json()
+        if item.get("type") == "blob" and item.get("path", "").endswith(_SOURCE_EXTS)
+    ]
+    return files
+
+
+def _fetch_file(project_id: int, path: str, token: str, branch: str) -> str:
+    enc = quote(path, safe="")
+    resp = _get(
+        f"/projects/{project_id}/repository/files/{enc}/raw", token, ref=branch
+    )
+    if resp is None or resp.status_code != 200:
+        return ""
+    return resp.text[:_MAX_FILE_CHARS]
+
+
+# ── Gemini ───────────────────────────────────────────────────────────────────
+
+def _gemini(prompt: str, gemini_key: str, max_tokens: int = 900) -> Optional[str]:
+    try:
+        resp = requests.post(
+            GEMINI_URL,
+            headers={"Content-Type": "application/json"},
+            params={"key": gemini_key},
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.4, "maxOutputTokens": max_tokens},
+            },
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            logger.error(f"Gemini error {resp.status_code}: {resp.text[:200]}")
+            return None
+        return (
+            resp.json().get("candidates", [{}])[0]
+            .get("content", {}).get("parts", [{}])[0].get("text", "")
+        )
+    except Exception as e:
+        logger.error(f"Gemini call failed: {e}")
+        return None
+
+
+def _orbit_block(orbit_context: Optional[dict]) -> str:
+    """Render Orbit graph context into the prompt, if available."""
+    if not orbit_context or not orbit_context.get("available"):
+        return ""
+    lines = ["", "GitLab Orbit knowledge-graph context (use this to ground your review):"]
+    summary = orbit_context.get("summary")
+    if summary:
+        lines.append(summary)
+    for key in ("hotspots", "blast_radius", "dependencies"):
+        rows = orbit_context.get(key)
+        if rows:
+            lines.append(f"\n{key.replace('_', ' ').title()}:")
+            for r in rows[:10]:
+                lines.append(f"  - {r}")
+    return "\n".join(lines)
+
+
+# ── Capabilities ─────────────────────────────────────────────────────────────
 
 def analyze_merge_request(
     project_id: int,
     mr_iid: int,
     gitlab_token: str,
     gemini_key: str,
+    orbit_context: Optional[dict] = None,
 ) -> dict[str, Any]:
-    """
-    Analyze a merge request using GitLab Orbit context and Gemini AI.
-    Returns improvement suggestions, code quality score, and action items.
-    """
+    """Review a merge request using its REAL diff (+ optional Orbit context)."""
     if not gitlab_token or not gemini_key:
         return {"success": False, "error": "Missing GitLab token or Gemini API key"}
 
-    try:
-        # Fetch MR details
-        mr_resp = requests.get(
-            f"https://gitlab.com/api/v4/projects/{project_id}/merge_requests/{mr_iid}",
-            headers={"PRIVATE-TOKEN": gitlab_token},
-            timeout=10,
-        )
-        if mr_resp.status_code != 200:
-            return {"success": False, "error": "Failed to fetch MR"}
+    data = _fetch_mr_diff(project_id, mr_iid, gitlab_token)
+    if data is None:
+        return {"success": False, "error": "Failed to fetch merge request"}
 
-        mr_data = mr_resp.json()
+    mr = data["mr"]
+    diff_text, files_shown = _render_diff(data["changes"])
+    if not diff_text:
+        return {"success": False, "error": "No diff content available for this MR"}
 
-        # Build context for Gemini
-        mr_context = {
-            "title": mr_data.get("title", ""),
-            "description": mr_data.get("description", "")[:1000],
-            "additions": mr_data.get("additions", 0),
-            "deletions": mr_data.get("deletions", 0),
-            "changes_count": mr_data.get("changes_count", 0),
-            "author": mr_data.get("author", {}).get("name", ""),
-        }
+    prompt = f"""You are an expert code reviewer. Review the ACTUAL diff below.
 
-        # Ask Gemini for code review insights
-        prompt = f"""You are an expert code reviewer analyzing a GitLab merge request.
+Merge Request: {mr.get('title', '')}
+Author: {mr.get('author', {}).get('name', '')}
+Description: {(mr.get('description') or '')[:600]}
+{_orbit_block(orbit_context)}
 
-Merge Request: {mr_context['title']}
-Author: {mr_context['author']}
-Changes: {mr_context['additions']} additions, {mr_context['deletions']} deletions across {mr_context['changes_count']} files
+=== DIFF ({files_shown} file(s)) ===
+{diff_text}
+=== END DIFF ===
 
-Description:
-{mr_context['description']}
+Base your review ONLY on the code shown. Provide:
+1. Code Quality Score (1-10) with one-line justification
+2. Specific issues — cite the file and what's wrong (bugs, edge cases, naming, duplication)
+3. Risk factors for merging
+4. One concrete next action
 
-Based on the scale of changes and description, provide:
-1. Code Quality Assessment (1-10 score)
-2. Key Improvement Areas (3-5 bullet points)
-3. Risk Factors (if any)
-4. One Concrete Next Action
+Be specific and reference real lines/identifiers from the diff. Under 320 words."""
 
-Keep response under 300 words. Be constructive and specific."""
+    analysis = _gemini(prompt, gemini_key)
+    if analysis is None:
+        return {"success": False, "error": "Gemini analysis failed"}
 
-        gemini_resp = requests.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-            headers={"Content-Type": "application/json"},
-            params={"key": gemini_key},
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0.7,
-                    "maxOutputTokens": 500,
-                },
-            },
-            timeout=15,
-        )
-
-        if gemini_resp.status_code != 200:
-            return {"success": False, "error": "Gemini API failed"}
-
-        gemini_data = gemini_resp.json()
-        analysis_text = (
-            gemini_data.get("candidates", [{}])[0]
-            .get("content", {})
-            .get("parts", [{}])[0]
-            .get("text", "")
-        )
-
-        return {
-            "success": True,
-            "mr_title": mr_context["title"],
-            "mr_author": mr_context["author"],
-            "changes": {
-                "additions": mr_context["additions"],
-                "deletions": mr_context["deletions"],
-                "files_changed": mr_context["changes_count"],
-            },
-            "ai_analysis": analysis_text,
-            "mr_url": mr_data.get("web_url", ""),
-        }
-
-    except Exception as e:
-        logger.error(f"Code coach analysis failed: {e}")
-        return {"success": False, "error": str(e)}
+    return {
+        "success": True,
+        "mr_title": mr.get("title", ""),
+        "mr_author": mr.get("author", {}).get("name", ""),
+        "changes": {
+            "additions": mr.get("additions", 0),
+            "deletions": mr.get("deletions", 0),
+            "files_changed": len(data["changes"]),
+            "files_analyzed": files_shown,
+        },
+        "orbit_powered": bool(orbit_context and orbit_context.get("available")),
+        "ai_analysis": analysis,
+        "mr_url": mr.get("web_url", ""),
+    }
 
 
 def find_technical_debt(
     project_id: int,
     gitlab_token: str,
     gemini_key: str,
+    orbit_context: Optional[dict] = None,
 ) -> dict[str, Any]:
-    """
-    Scan for technical debt patterns in a project using GitLab Orbit.
-    Uses Gemini to identify code smells, complexity hotspots, and improvement opportunities.
-    """
+    """Scan REAL source files for technical debt (+ optional Orbit hotspots)."""
     if not gitlab_token or not gemini_key:
         return {"success": False, "error": "Missing credentials"}
 
-    try:
-        # Fetch recent commits to understand project activity
-        commits_resp = requests.get(
-            f"https://gitlab.com/api/v4/projects/{project_id}/repository/commits",
-            headers={"PRIVATE-TOKEN": gitlab_token},
-            params={"per_page": 20},
-            timeout=10,
-        )
+    branch = _default_branch(project_id, gitlab_token)
+    files = _list_source_files(project_id, gitlab_token, branch)
+    if not files:
+        return {"success": False, "error": "No source files found to analyse"}
 
-        if commits_resp.status_code != 200:
-            return {"success": False, "error": "Failed to fetch commits"}
+    # Prefer Orbit-identified hotspots; otherwise sample the listed files.
+    targets: list[str] = []
+    if orbit_context and orbit_context.get("available"):
+        for row in orbit_context.get("hotspots", []):
+            path = row.get("path") if isinstance(row, dict) else str(row)
+            if path in files:
+                targets.append(path)
+    for f in files:
+        if f not in targets:
+            targets.append(f)
+    targets = targets[:_MAX_DEBT_FILES]
 
-        commits = commits_resp.json()
-        commit_summary = {
-            "recent_commits": len(commits),
-            "latest_author": commits[0].get("author_name", "") if commits else "",
-            "avg_files_per_commit": sum(
-                len(c.get("parent_ids", [])) for c in commits
-            ) / max(len(commits), 1),
-        }
+    sources: list[str] = []
+    for path in targets:
+        content = _fetch_file(project_id, path, gitlab_token, branch)
+        if content:
+            sources.append(f"### FILE: {path}\n{content}")
 
-        # Ask Gemini to identify debt patterns
-        prompt = f"""You are a technical debt analyzer for a software project.
+    if not sources:
+        return {"success": False, "error": "Could not read any source files"}
 
-Project Statistics:
-- Recent commits: {commit_summary['recent_commits']}
-- Latest contributor: {commit_summary['latest_author']}
+    code_blob = "\n\n".join(sources)
+    prompt = f"""You are a senior engineer auditing real code for technical debt.
+{_orbit_block(orbit_context)}
 
-Based on typical patterns in active projects, identify likely technical debt areas:
-1. Code Complexity Hotspots (where they often exist in projects)
-2. Testing Gaps (common in established projects)
-3. Documentation Debt
-4. Dependency Management Issues
-5. Performance Optimization Opportunities
+Below are {len(sources)} real source file(s) from the project:
 
-For EACH area, provide:
-- Description of the debt type
-- Why it matters
-- Concrete first step to address it
+{code_blob}
 
-Be practical and specific. Focus on quick wins."""
+For the code ABOVE (cite specific files/functions), identify:
+1. Complexity hotspots — overly long/nested functions, with the file name
+2. Testing gaps — untested critical paths you can infer
+3. Documentation debt — missing/misleading docs
+4. Duplication & dead code
+5. Performance or correctness risks
 
-        gemini_resp = requests.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-            headers={"Content-Type": "application/json"},
-            params={"key": gemini_key},
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0.8,
-                    "maxOutputTokens": 800,
-                },
-            },
-            timeout=15,
-        )
+For each finding: the file, why it matters, and a concrete first step.
+Ground every point in the actual code shown. Under 420 words."""
 
-        if gemini_resp.status_code != 200:
-            return {"success": False, "error": "Gemini API failed"}
+    debt = _gemini(prompt, gemini_key, max_tokens=1100)
+    if debt is None:
+        return {"success": False, "error": "Gemini analysis failed"}
 
-        gemini_data = gemini_resp.json()
-        debt_analysis = (
-            gemini_data.get("candidates", [{}])[0]
-            .get("content", {})
-            .get("parts", [{}])[0]
-            .get("text", "")
-        )
-
-        return {
-            "success": True,
-            "project_id": project_id,
-            "debt_analysis": debt_analysis,
-            "metrics": commit_summary,
-        }
-
-    except Exception as e:
-        logger.error(f"Technical debt analysis failed: {e}")
-        return {"success": False, "error": str(e)}
+    return {
+        "success": True,
+        "project_id": project_id,
+        "branch": branch,
+        "files_analyzed": [s.split("\n", 1)[0].replace("### FILE: ", "") for s in sources],
+        "orbit_powered": bool(orbit_context and orbit_context.get("available")),
+        "debt_analysis": debt,
+    }

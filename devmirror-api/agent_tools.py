@@ -76,16 +76,17 @@ _TOOL_DECLARATIONS = [
     {
         "name": "fetch_gitlab_orbit",
         "description": (
-            "Fetch GitLab Orbit context for a project: codebase structure, complexity metrics, "
-            "code quality indicators. Enables AI-powered code analysis and coaching."
+            "Query the GitLab Orbit knowledge graph of the connected codebase: complexity "
+            "hotspots, blast radius (most-called functions), module coupling, and the longest "
+            "functions. Use this to ground code-quality coaching in the real architecture."
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "project_id": {"type": "integer", "description": "GitLab project ID"},
-                "token":      {"type": "string", "description": "GitLab personal access token"},
+                "project_id": {"type": "integer", "description": "Optional GitLab project ID (legacy fallback)"},
+                "token":      {"type": "string", "description": "Optional GitLab token (legacy fallback)"},
             },
-            "required": ["project_id", "token"],
+            "required": [],
         },
     },
     {
@@ -215,7 +216,7 @@ class AgentContext:
                 )
             if name == "fetch_gitlab_orbit":
                 return self.fetch_orbit(
-                    args["project_id"],
+                    args.get("project_id", 0),
                     args.get("token", self.gitlab_token),
                 )
             if name == "fetch_gmail_opportunities":

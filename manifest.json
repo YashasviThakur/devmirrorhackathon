@@ -1,0 +1,98 @@
+{
+  "id": "devmirror-code-coach",
+  "name": "DevMirror Code Coach",
+  "description": "Architecture-aware code coaching powered by the GitLab Orbit knowledge graph. Indexes a repository with Orbit, queries the graph for complexity hotspots, blast radius (call-graph fan-in), and module coupling, then produces prioritized, grounded guidance with Gemini.",
+  "version": "2.0.0",
+  "author": {
+    "name": "Yashasvi Thakur",
+    "email": "yashasvithakur2005@gmail.com",
+    "github": "YashasviThakur"
+  },
+  "repository": {
+    "url": "https://github.com/YashasviThakur/devmirrorhackathon",
+    "type": "git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "gitlab-orbit",
+    "knowledge-graph",
+    "code-review",
+    "technical-debt",
+    "blast-radius",
+    "ai-coaching",
+    "gemini"
+  ],
+  "capabilities": [
+    {
+      "name": "analyze-codebase",
+      "description": "Index a repo with GitLab Orbit and return a prioritized coaching report.",
+      "icon": "graph",
+      "tags": ["orbit", "knowledge-graph", "coaching"]
+    },
+    {
+      "name": "analyze-merge-request",
+      "description": "Review a merge request's real diff, grounded in Orbit graph context.",
+      "icon": "review",
+      "tags": ["code-review", "mr-analysis", "orbit"]
+    },
+    {
+      "name": "detect-technical-debt",
+      "description": "Scan real source files for debt, prioritized by Orbit-identified hotspots.",
+      "icon": "warning",
+      "tags": ["technical-debt", "analysis", "orbit"]
+    }
+  ],
+  "integration": {
+    "type": "agent-skill",
+    "platform": "GitLab Duo Agent Platform",
+    "orbit_enabled": true,
+    "orbit_mode": "local",
+    "orbit_cli": "orbit index / orbit sql / orbit mcp",
+    "mcp_compatible": true,
+    "gemini_enabled": true,
+    "graph_tables": ["gl_definition", "gl_imported_symbol", "gl_edge", "gl_file"],
+    "entrypoint": "devmirror-api/orbit_coach.py",
+    "requires": {
+      "orbit_cli": "GitLab Orbit local CLI — https://docs.gitlab.com/orbit/",
+      "gemini_api_key": "Google Gemini API key (optional; Orbit analysis runs without it)"
+    }
+  },
+  "dependencies": {
+    "runtime": "python-3.10+",
+    "frameworks": ["fastapi", "requests"],
+    "external_tools": ["GitLab Orbit (Knowledge Graph) CLI"],
+    "external_apis": ["GitLab REST API v4", "Google Gemini 2.5 Flash"]
+  },
+  "endpoints": {
+    "analyze_mr": {
+      "path": "/api/coach/analyze-mr",
+      "method": "POST",
+      "authentication": "user_id + gitlab_token"
+    },
+    "find_debt": {
+      "path": "/api/coach/find-debt",
+      "method": "POST",
+      "authentication": "user_id + gitlab_token"
+    },
+    "orbit_context": {
+      "path": "/api/data/gitlab/orbit",
+      "method": "GET",
+      "authentication": "user_id"
+    }
+  },
+  "documentation": {
+    "readme": "https://github.com/YashasviThakur/devmirrorhackathon#readme",
+    "getting_started": "https://github.com/YashasviThakur/devmirrorhackathon/blob/main/QUICKSTART.md",
+    "full_docs": "https://github.com/YashasviThakur/devmirrorhackathon/blob/main/GITLAB_TRANSCEND.md"
+  },
+  "support": {
+    "issues": "https://github.com/YashasviThakur/devmirrorhackathon/issues",
+    "email": "yashasvithakur2005@gmail.com"
+  },
+  "pricing": {
+    "model": "free",
+    "tier": "community"
+  },
+  "status": "active",
+  "lastUpdated": "2026-06-22"
+}

@@ -7,12 +7,13 @@
 - GitLab account with personal access token ([create here](https://gitlab.com/-/user_settings/personal_access_tokens))
   - Scopes: `api`, `read_repository`, `read_user`
 - Gemini API key ([free tier](https://aistudio.google.com/app/apikey))
+- **GitLab Orbit local CLI** ([install](https://docs.gitlab.com/orbit/)) — powers the Code Coach
 
 ### 2. Clone & Install
 
 ```bash
-git clone https://github.com/YashasviThakur/devmirror-gitlab.git
-cd devmirror-gitlab
+git clone https://github.com/YashasviThakur/devmirrorhackathon.git
+cd devmirrorhackathon
 
 # Backend
 cd devmirror-api
@@ -22,6 +23,19 @@ pip install -r requirements.txt
 cd ../devmirror-frontend
 npm install
 ```
+
+### 2.5 Try the Orbit Code Coach skill (30 seconds, no web stack)
+
+This is the headline artifact — real GitLab Orbit, one command:
+
+```bash
+cd devmirror-api
+python orbit_coach.py /path/to/any/repo --top 8
+# Add the AI narrative:  $env:GEMINI_API_KEY="..."  (PowerShell)  then re-run
+```
+
+It runs `orbit index` + `orbit sql` over the repo's knowledge graph and prints
+complexity hotspots, blast radius, coupling, and a prioritized coaching report.
 
 ### 3. Environment Setup
 
@@ -124,10 +138,11 @@ Visit `http://localhost:8000/docs` for interactive Swagger UI
 
 | Feature | File | Purpose |
 |---------|------|---------|
-| **Orbit Integration** | `gitlab_orbit_client.py` | Fetch codebase context |
-| **Code Coach Agent** | `code_coach_agent.py` | AI analysis & coaching |
-| **Coach API** | `main.py` (new endpoints) | `/api/coach/*` endpoints |
-| **Coach UI** | `GitLab.tsx` | Frontend interface |
+| **Real Orbit client** | `orbit_local_client.py` | `orbit index` + SQL over the knowledge graph |
+| **Orbit Coach skill** | `orbit_coach.py` | Orbit graph → Gemini coaching report (AI Catalog artifact) |
+| **Code Coach Agent** | `code_coach_agent.py` | MR review on the real diff + Orbit context |
+| **Coach API** | `main.py` (`/api/coach/*`, `/api/data/gitlab/orbit`) | Orbit wired into the app |
+| **Agent tool** | `agent_tools.py` (`fetch_gitlab_orbit`) | Orbit context inside the AI agent |
 
 ---
 

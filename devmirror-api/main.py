@@ -46,9 +46,24 @@ from auth_router import router as auth_router, refresh_google_token_if_needed
 import coral_client
 import gitlab_client
 import gitlab_orbit_client
+import orbit_local_client
 import mongodb_client
 import code_coach_agent
 from agent_tools import AgentContext, run_agent
+
+# Repo whose GitLab Orbit knowledge graph backs the Code Coach. Defaults to this
+# project's own root so the deployed app can analyse itself; override per deploy.
+ORBIT_REPO_PATH = os.getenv(
+    "ORBIT_REPO_PATH", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+
+def _orbit_context(do_index: bool = False) -> dict:
+    """Real GitLab Orbit context for the configured repo, or unavailable dict."""
+    if orbit_local_client.is_available():
+        ctx = orbit_local_client.build_context(ORBIT_REPO_PATH, do_index=do_index)
+        if ctx.get("available"):
+            return ctx
+    return {"available": False, "detail": "Orbit CLI/graph not available"}
 
 _pool = ThreadPoolExecutor(max_workers=12)
 
@@ -1363,8 +1378,13 @@ async def data_gitlab_orbit(
     project_id: int = Query(...),
     db: Session = Depends(get_db)
 ):
-    """Fetch GitLab Orbit context for code analysis and AI coaching."""
+    """Fetch GitLab Orbit knowledge-graph context for code analysis and AI coaching."""
     user = _get_user_or_404(user_id, db)
+    # Prefer the real GitLab Orbit knowledge graph (local index).
+    orbit_ctx = await _run(_orbit_context, False)
+    if orbit_ctx.get("available"):
+        return orbit_ctx
+    # Fallback: legacy GitLab API context (requires a token).
     linked = user.linked_accounts
     gl_token = linked.gitlab_token if linked else None
     if not gl_token:
@@ -1519,7 +1539,11 @@ async def ask_agent(body: AskRequest, db: Session = Depends(get_db)):
             return {}
         return _create_calendar_event(g_token, event)
 
-    def _fetch_orbit_for_agent(project_id: int, token: str = ""):
+    def _fetch_orbit_for_agent(project_id: int = 0, token: str = ""):
+        # Prefer the real GitLab Orbit knowledge graph (local index).
+        orbit_ctx = _orbit_context(do_index=False)
+        if orbit_ctx.get("available"):
+            return orbit_ctx
         token = token or gl_token or ""
         if not token:
             return {"available": False, "detail": "GitLab token required"}
@@ -1584,7 +1608,11 @@ async def coach_analyze_mr(
     if not gemini_key:
         raise HTTPException(status_code=500, detail="Gemini API key not configured.")
 
-    return await _run(code_coach_agent.analyze_merge_request, project_id, mr_iid, gl_token, gemini_key)
+    orbit_ctx = await _run(_orbit_context, False)
+    orbit_ctx = orbit_ctx if orbit_ctx.get("available") else None
+    return await _run(
+        code_coach_agent.analyze_merge_request, project_id, mr_iid, gl_token, gemini_key, orbit_ctx
+    )
 
 
 @app.post("/api/coach/find-debt")
@@ -1604,7 +1632,11 @@ async def coach_find_debt(
     if not gemini_key:
         raise HTTPException(status_code=500, detail="Gemini API key not configured.")
 
-    return await _run(code_coach_agent.find_technical_debt, project_id, gl_token, gemini_key)
+    orbit_ctx = await _run(_orbit_context, False)
+    orbit_ctx = orbit_ctx if orbit_ctx.get("available") else None
+    return await _run(
+        code_coach_agent.find_technical_debt, project_id, gl_token, gemini_key, orbit_ctx
+    )
 
 
 # ── Backward-compatible endpoints (single-user fallback) ─────────────────────
