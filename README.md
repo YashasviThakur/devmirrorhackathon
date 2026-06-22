@@ -8,25 +8,58 @@
 
 <br /><br />
 
-# DevMirror
+# DevMirror Code Coach
 
-### Not your critic. Your coach.
+### Architecture-aware code coaching, powered by the GitLab Orbit knowledge graph.
 
-One dashboard for your GitHub, GitLab, LeetCode, Codeforces, Gmail, Calendar, and YouTube — powered by a multi-step Gemini 3 agent that knows your goals, coaches you daily, and schedules your week.
+> **GitLab Transcend Hackathon 2026 · Showcase Track.** This repo's headline is the
+> **Code Coach** — it indexes a repo with **GitLab Orbit**, queries the knowledge
+> graph for complexity hotspots, **blast radius** (call-graph fan-in), and coupling,
+> and grounds every recommendation in the project's real structure. It ships as a
+> CLI skill, a CI auto-reviewer, an MCP server, and a web dashboard.
 
 <br />
 
-[**Live Demo →**](https://dev-mirror-two.vercel.app) &nbsp;·&nbsp; [**Report a Bug**](https://github.com/YashasviThakur/DevMirror/issues) &nbsp;·&nbsp; [**Request a Feature**](https://github.com/YashasviThakur/DevMirror/issues)
+[**Code Coach docs →**](GITLAB_TRANSCEND.md) &nbsp;·&nbsp; [**Quick start**](QUICKSTART.md) &nbsp;·&nbsp; [**Issues**](https://github.com/YashasviThakur/devmirrorhackathon/issues)
 
 </div>
 
 ---
 
+## 🛰️ The Code Coach (GitLab Orbit)
+
+```bash
+# Install GitLab Orbit (https://docs.gitlab.com/orbit/), then:
+cd devmirror-api
+python orbit_coach.py /path/to/any/repo --top 8
+```
+
+Real GitLab Orbit usage via the official `orbit` CLI:
+
+| Signal | Orbit query (graph fact, not a guess) |
+|---|---|
+| **Complexity hotspots** | definitions per file (`gl_definition`) |
+| **Blast radius** | call-graph fan-in via `gl_edge` (`CALLS`) — riskiest functions to change |
+| **Module coupling** | importers per module (`gl_imported_symbol`) |
+| **Longest functions** | line span per definition |
+
+**Four surfaces, one Orbit core:**
+- **`orbit_coach.py`** — standalone coaching skill (the AI-Catalog artifact, MIT)
+- **`.gitlab-ci.yml` + `ci/orbit_mr_review.py`** — posts a blast-radius review on every MR
+- **`orbit_mcp_server.py`** — exposes the coach over MCP for Duo Agent Platform / Claude Code
+- **Orbit Insights** page + `/api/coach/*` endpoints in the web app
+
+See **[GITLAB_TRANSCEND.md](GITLAB_TRANSCEND.md)** for the full write-up, and
+**[AI_CATALOG.md](AI_CATALOG.md)** for publishing the skill.
+
+---
+
 ## What is DevMirror?
 
-Most developers have 6 tabs open just to check their own progress — GitHub here, LeetCode there, emails buried somewhere else. DevMirror collapses all of that into one place, adds a Gemini-powered AI coach that knows your actual goals, and tells you what to focus on today.
-
-Built for developers who are serious about their growth.
+The Code Coach lives inside **DevMirror** — one dashboard for your GitHub, GitLab,
+LeetCode, Codeforces, Gmail, Calendar, and YouTube, with a multi-step Gemini agent
+that knows your goals. Most developers have 6 tabs open just to check their own
+progress; DevMirror collapses that into one place — and now coaches your *code*, too.
 
 ---
 
@@ -146,8 +179,8 @@ for turn in range(max_turns):
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/YashasviThakur/DevMirror.git
-cd DevMirror
+git clone https://github.com/YashasviThakur/devmirrorhackathon.git
+cd devmirrorhackathon
 ```
 
 ### 2. Backend setup
