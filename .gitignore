@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Env / secrets
+.env
+*.local
+
+# Orbit local graph
+*.duckdb
+.orbit/
+
+# Node
+node_modules/
+dist/
+.DS_Store
+
+# Logs / DBs
+*.log
+*.db
+*.sqlite3
