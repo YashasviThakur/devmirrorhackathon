@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "devmirror-code-coach": {
+      "command": "python",
+      "args": ["devmirror-api/orbit_mcp_server.py"],
+      "description": "GitLab Orbit Code Coach — blast radius, hotspots, and risk for any repo."
+    }
+  }
+}
